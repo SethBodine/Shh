@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Secret - SecureShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --gradient-start: #667eea;
+      --gradient-end: #764ba2;
+    }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+      transition: background 0.3s ease;
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .blur-content {
+      filter: blur(10px);
+      user-select: none;
+      pointer-events: none;
+    }
+    
+    /* Dark mode styles */
+    body.dark-mode {
+      background-color: #1a1a2e;
+    }
+    
+    body.dark-mode .bg-white {
+      background-color: #16213e;
+      color: #e4e4e7;
+    }
+    
+    body.dark-mode .text-gray-700,
+    body.dark-mode .text-gray-800 {
+      color: #d1d5db;
+    }
+    
+    body.dark-mode .text-gray-600 {
+      color: #9ca3af;
+    }
+    
+    body.dark-mode .text-gray-500 {
+      color: #6b7280;
+    }
+    
+    body.dark-mode .border-gray-300,
+    body.dark-mode .border-gray-200 {
+      border-color: #374151;
+    }
+    
+    body.dark-mode .bg-gray-50 {
+      background-color: #0f3460;
+    }
+    
+    .theme-btn {
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .theme-btn:hover {
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="gradient-bg text-white py-6 shadow-lg">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h1 class="text-3xl font-bold">🔒 SecureShare</h1>
+          <p class="text-purple-100 mt-1">Share secrets securely with self-destructing links</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <!-- Theme Selector -->
+          <select id="themeSelect" class="px-3 py-2 rounded bg-white/20 text-white border border-white/30 text-sm cursor-pointer hover:bg-white/30 transition">
+            <option value="purple">Purple</option>
+            <option value="blue">Ocean Blue</option>
+            <option value="green">Forest Green</option>
+            <option value="orange">Sunset Orange</option>
+            <option value="pink">Sakura Pink</option>
+            <option value="teal">Teal Wave</option>
+          </select>
+          <!-- Day/Night Toggle -->
+          <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">
+            🌙
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container mx-auto px-4 py-8 max-w-3xl">
+    
+    <!-- Loading State -->
+    <div id="loadingState" class="bg-white rounded-lg shadow-md p-8 text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+      <p class="text-gray-600">Checking secret...</p>
+    </div>
+
+    <!-- Warning Before Viewing -->
+    <div id="warningState" class="hidden bg-white rounded-lg shadow-md p-8">
+      <div class="text-center mb-6">
+        <div class="text-6xl mb-4">⚠️</div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Warning: One-Time View</h2>
+        <p class="text-gray-600">This secret can only be viewed once.</p>
+      </div>
+
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <p class="text-yellow-800 text-sm">
+          <strong>Important:</strong> Once you click "View Secret" below, this link will be 
+          permanently destroyed. Make sure you're ready to save or copy the information.
+        </p>
+      </div>
+
+      <div id="secretInfo" class="mb-6 text-sm text-gray-600">
+        <!-- Will be populated with secret info -->
+      </div>
+
+      <button 
+        id="viewBtn" 
+        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200">
+        🔓 View Secret (This Will Destroy the Link)
+      </button>
+
+      <div class="text-center mt-4">
+        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm">
+          ← Create your own secret
+        </a>
+      </div>
+    </div>
+
+    <!-- Secret Content -->
+    <div id="contentState" class="hidden bg-white rounded-lg shadow-md p-8 fade-in">
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold text-gray-800">Secret Message</h2>
+          <button 
+            id="copySecretBtn" 
+            class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition text-sm">
+            📋 Copy
+          </button>
+        </div>
+        
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <pre id="secretContent" class="whitespace-pre-wrap text-gray-800 font-mono text-sm"></pre>
+        </div>
+      </div>
+
+      <!-- Files Section -->
+      <div id="filesSection" class="hidden mb-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-3">Attached Files</h3>
+        <div id="filesList" class="space-y-2">
+          <!-- Files will be listed here -->
+        </div>
+      </div>
+
+      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p class="text-red-800 text-sm">
+          <strong>⚠️ This secret has been destroyed.</strong> The link is now invalid and 
+          cannot be accessed again. Make sure to save this information securely.
+        </p>
+      </div>
+
+      <div class="text-center mt-6">
+        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+          ← Create your own secret
+        </a>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="hidden bg-white rounded-lg shadow-md p-8">
+      <div class="text-center">
+        <div class="text-6xl mb-4">❌</div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Secret Not Found</h2>
+        <p class="text-gray-600 mb-6" id="errorMessage">
+          This secret has either expired, been viewed already, or never existed.
+        </p>
+        <a 
+          href="/" 
+          class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+          Create a Secret
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = '/api';
+    
+    // ===================================
+    // THEME & MODE MANAGEMENT
+    // ===================================
+    
+    const themes = {
+      purple: { start: '#667eea', end: '#764ba2' },
+      blue: { start: '#4facfe', end: '#00f2fe' },
+      green: { start: '#56ab2f', end: '#a8e063' },
+      orange: { start: '#f46b45', end: '#eea849' },
+      pink: { start: '#ff6a88', end: '#ff99ac' },
+      teal: { start: '#2ebf91', end: '#8360c3' }
+    };
+    
+    // Initialize theme and mode
+    function initializeTheme() {
+      const savedTheme = localStorage.getItem('theme') || 'purple';
+      document.getElementById('themeSelect').value = savedTheme;
+      applyTheme(savedTheme);
+      
+      const savedMode = localStorage.getItem('mode');
+      if (savedMode) {
+        applyMode(savedMode);
+      } else {
+        applyTimeBasedMode();
+      }
+    }
+    
+    function applyTheme(themeName) {
+      const theme = themes[themeName];
+      document.documentElement.style.setProperty('--gradient-start', theme.start);
+      document.documentElement.style.setProperty('--gradient-end', theme.end);
+      localStorage.setItem('theme', themeName);
+    }
+    
+    function applyMode(mode) {
+      const body = document.body;
+      const toggle = document.getElementById('modeToggle');
+      
+      if (mode === 'dark') {
+        body.classList.add('dark-mode');
+        toggle.textContent = '☀️';
+      } else {
+        body.classList.remove('dark-mode');
+        toggle.textContent = '🌙';
+      }
+      localStorage.setItem('mode', mode);
+    }
+    
+    function applyTimeBasedMode() {
+      const hour = new Date().getHours();
+      const mode = (hour >= 18 || hour < 6) ? 'dark' : 'light';
+      applyMode(mode);
+    }
+    
+    document.getElementById('themeSelect').addEventListener('change', (e) => {
+      applyTheme(e.target.value);
+    });
+    
+    document.getElementById('modeToggle').addEventListener('click', () => {
+      const isDark = document.body.classList.contains('dark-mode');
+      applyMode(isDark ? 'light' : 'dark');
+    });
+    
+    initializeTheme();
+    
+    // ===================================
+    // SECRET VIEWING LOGIC
+    // ===================================
+    
+    // Get secret ID from URL
+    const pathParts = window.location.pathname.split('/');
+    const secretId = pathParts[pathParts.length - 1];
+
+    const loadingState = document.getElementById('loadingState');
+    const warningState = document.getElementById('warningState');
+    const contentState = document.getElementById('contentState');
+    const errorState = document.getElementById('errorState');
+
+    // Check if secret exists
+    async function checkSecret() {
+      try {
+        const res = await fetch(`${API_URL}/secret/${secretId}/metadata`);
+        
+        if (!res.ok) {
+          showError();
+          return;
+        }
+
+        const data = await res.json();
+        
+        if (data.viewed) {
+          showError('This secret has already been viewed and destroyed.');
+          return;
+        }
+
+        // Show warning
+        loadingState.classList.add('hidden');
+        warningState.classList.remove('hidden');
+
+        // Update info
+        const infoDiv = document.getElementById('secretInfo');
+        let infoHTML = '<ul class="space-y-2">';
+        infoHTML += '<li>✅ Secret is available and has not been viewed</li>';
+        if (data.hasFiles) {
+          infoHTML += `<li>📎 Contains ${data.fileCount} attached file(s)</li>`;
+        }
+        infoHTML += '</ul>';
+        infoDiv.innerHTML = infoHTML;
+
+      } catch (err) {
+        console.error('Error checking secret:', err);
+        showError();
+      }
+    }
+
+    // View secret
+    document.getElementById('viewBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('viewBtn');
+      btn.disabled = true;
+      btn.textContent = 'Loading secret...';
+
+      try {
+        const res = await fetch(`${API_URL}/secret/${secretId}/view`, {
+          method: 'POST',
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          showError(error.error);
+          return;
+        }
+
+        const data = await res.json();
+
+        // Show content
+        warningState.classList.add('hidden');
+        contentState.classList.remove('hidden');
+
+        document.getElementById('secretContent').textContent = data.text || '(No text content)';
+
+        // Show files if any
+        if (data.files && data.files.length > 0) {
+          document.getElementById('filesSection').classList.remove('hidden');
+          const filesList = document.getElementById('filesList');
+          
+          filesList.innerHTML = data.files.map(file => `
+            <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3">
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">📄</span>
+                <div>
+                  <div class="font-medium text-gray-800">${escapeHtml(file.name)}</div>
+                  <div class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</div>
+                </div>
+              </div>
+              <button 
+                onclick="downloadFile('${escapeHtml(file.name)}', '${file.type}', '${file.data}')"
+                class="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700">
+                Download
+              </button>
+            </div>
+          `).join('');
+        }
+
+      } catch (err) {
+        console.error('Error viewing secret:', err);
+        showError('Failed to retrieve secret');
+      }
+    });
+
+    // Copy secret to clipboard
+    document.getElementById('copySecretBtn').addEventListener('click', () => {
+      const content = document.getElementById('secretContent').textContent;
+      navigator.clipboard.writeText(content);
+      
+      const btn = document.getElementById('copySecretBtn');
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => {
+        btn.textContent = '📋 Copy';
+      }, 2000);
+    });
+
+    function showError(message = null) {
+      loadingState.classList.add('hidden');
+      warningState.classList.add('hidden');
+      contentState.classList.add('hidden');
+      errorState.classList.remove('hidden');
+      
+      if (message) {
+        document.getElementById('errorMessage').textContent = message;
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function downloadFile(name, type, base64Data) {
+      const link = document.createElement('a');
+      link.href = `data:${type};base64,${base64Data}`;
+      link.download = name;
+      link.click();
+    }
+
+    // Initialize
+    checkSecret();
+  </script>
+</body>
+</html>
