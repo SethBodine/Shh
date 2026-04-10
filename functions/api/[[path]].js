@@ -17,16 +17,20 @@ import {
   sanitizeError,
 } from '../_security.js';
 
-// FEATURE FLAGS - These cannot be modified from browser
+// ===================================
+// FEATURE FLAGS
+// ===================================
 const FEATURES = {
-  FILE_UPLOADS_ENABLED: false, // Set to true to enable file uploads up to 10MB
+  FILE_UPLOADS_ENABLED: false,
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
-  MAX_TEXT_SIZE: 1024, // 1KB for text (encrypted will be ~2KB)
+  MAX_TEXT_SIZE: 1024, // 1KB plaintext (encrypted will be ~2KB)
   MAX_TTL_HOURS: 24,
   DISCORD_WEBHOOK_ENABLED: true,
 };
 
-// Rate limiting configuration - Override via Cloudflare environment variables
+// ===================================
+// RATE LIMIT CONFIGURATION
+// ===================================
 function getRateLimits(env) {
   return {
     CREATE_SECRET_PER_IP_PER_HOUR: parseInt(env.RATE_LIMIT_CREATE || '10'),
@@ -35,16 +39,81 @@ function getRateLimits(env) {
   };
 }
 
+// ===================================
+// DISCORD NOTIFICATION HELPER
+// ===================================
+async function sendDiscordNotification(env, clientIP, data) {
+  if (!FEATURES.DISCORD_WEBHOOK_ENABLED || !env.DISCORD_WEBHOOK_URL) {
+    return;
+  }
+
+  const embed = {
+    embeds: [{
+      title: data.title || 'Secret Activity',
+      color: data.color || 3447003,
+      fields: [
+        { name: 'Source IP', value: clientIP || 'unknown', inline: true },
+        { name: 'TTL', value: `${data.ttl || 0} hours`, inline: true },
+        { name: 'Size', value: `${data.messageLength || 0} bytes`, inline: true },
+      ],
+      timestamp: new Date().toISOString(),
+    }],
+  };
+
+  if (data.files && data.files.length > 0) {
+    embed.embeds[0].fields.push({
+      name: 'Files',
+      value: data.files.join(', '),
+      inline: false,
+    });
+  }
+
+  try {
+    await fetch(env.DISCORD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(embed),
+    });
+  } catch (err) {
+    console.error('Discord notification failed:', err);
+  }
+}
+
+// ===================================
+// RATE LIMITING HELPER
+// ===================================
+async function checkRateLimit(env, action, clientIP, limit) {
+  const rateLimitKey = generateRateLimitKey(action, clientIP);
+  const current = await env.SECRETS_KV.get(rateLimitKey);
+  const count = current ? parseInt(current) : 0;
+  
+  if (count >= limit) {
+    return false;
+  }
+  
+  await env.SECRETS_KV.put(rateLimitKey, (count + 1).toString(), { 
+    expirationTtl: 3600 
+  });
+  return true;
+}
+
+// ===================================
+// MAIN REQUEST HANDLER
+// ===================================
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const path = url.pathname.replace('/api/', '');
 
-  // Validate KV namespace binding
+  // ===================================
+  // VALIDATE KV BINDING
+  // ===================================
   if (!env.SECRETS_KV) {
-    console.error('KV namespace binding not found');
+    console.error('CRITICAL: KV namespace not bound');
+    console.error('Available env keys:', Object.keys(env));
     return new Response(JSON.stringify({ 
-      error: 'Service configuration error' 
+      error: 'Service configuration error - KV namespace not bound',
+      hint: 'Check Cloudflare Pages Settings > Functions > KV namespace bindings'
     }), {
       status: 503,
       headers: applySecurityHeaders({
@@ -54,7 +123,9 @@ export async function onRequest(context) {
     });
   }
 
-  // CORS preflight
+  // ===================================
+  // CORS PREFLIGHT
+  // ===================================
   if (request.method === 'OPTIONS') {
     return new Response(null, { 
       headers: applySecurityHeaders(getCORSHeaders())
@@ -65,58 +136,6 @@ export async function onRequest(context) {
   const RATE_LIMITS = getRateLimits(env);
   const corsHeaders = getCORSHeaders();
 
-  // Rate limiting helper
-  async function checkRateLimit(action, limit) {
-    const rateLimitKey = generateRateLimitKey(action, clientIP);
-    const current = await env.SECRETS_KV.get(rateLimitKey);
-    const count = current ? parseInt(current) : 0;
-    
-    if (count >= limit) {
-      return false;
-    }
-    
-    await env.SECRETS_KV.put(rateLimitKey, (count + 1).toString(), { 
-      expirationTtl: 3600 
-    });
-    return true;
-  }
-
-  // Discord notification helper
-  async function sendDiscordNotification(data) {
-    if (!FEATURES.DISCORD_WEBHOOK_ENABLED || !env.DISCORD_WEBHOOK_URL) return;
-
-    const embed = {
-      embeds: [{
-        title: data.title || 'Secret Activity',
-        color: data.color || 3447003,
-        fields: [
-          { name: 'Source IP', value: clientIP, inline: true },
-          { name: 'TTL', value: `${data.ttl || 0} hours`, inline: true },
-          { name: 'Size', value: `${data.messageLength || 0} bytes`, inline: true },
-        ],
-        timestamp: new Date().toISOString(),
-      }],
-    };
-
-    if (data.files && data.files.length > 0) {
-      embed.embeds[0].fields.push({
-        name: 'Files',
-        value: data.files.join(', '),
-        inline: false,
-      });
-    }
-
-    try {
-      await fetch(env.DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(embed),
-      });
-    } catch (err) {
-      console.error('Discord notification failed:', err);
-    }
-  }
-
   try {
     // ==========================================
     // HEALTH CHECK
@@ -124,7 +143,8 @@ export async function onRequest(context) {
     if (request.method === 'GET' && path === 'health') {
       return new Response(JSON.stringify({
         status: 'ok',
-        version: '1.0.0',
+        version: '2.0.0',
+        timestamp: new Date().toISOString(),
         features: {
           fileUploads: FEATURES.FILE_UPLOADS_ENABLED,
           maxFileSize: FEATURES.MAX_FILE_SIZE,
@@ -133,9 +153,11 @@ export async function onRequest(context) {
           e2ee: true,
           zeroKnowledge: true,
         },
-        kvBound: !!env.SECRETS_KV,
-        adminTokenSet: !!env.ADMIN_TOKEN,
-        discordWebhookSet: !!env.DISCORD_WEBHOOK_URL,
+        config: {
+          kvBound: !!env.SECRETS_KV,
+          adminTokenSet: !!env.ADMIN_TOKEN,
+          discordWebhookSet: !!env.DISCORD_WEBHOOK_URL,
+        },
         rateLimits: RATE_LIMITS,
       }), {
         headers: applySecurityHeaders({
@@ -150,16 +172,33 @@ export async function onRequest(context) {
     // ==========================================
     if (request.method === 'POST' && path === 'secret') {
       // Rate limit check
-      if (!await checkRateLimit('create', RATE_LIMITS.CREATE_SECRET_PER_IP_PER_HOUR)) {
-        await sendDiscordNotification({
+      if (!await checkRateLimit(env, 'create', clientIP, RATE_LIMITS.CREATE_SECRET_PER_IP_PER_HOUR)) {
+        await sendDiscordNotification(env, clientIP, {
           title: '🚨 Rate Limit Exceeded - Create',
           color: 15158332,
         });
         
         return new Response(JSON.stringify({ 
-          error: 'Rate limit exceeded. Please try again later.' 
+          error: 'Rate limit exceeded. Please try again later.',
+          retryAfter: 3600,
         }), {
           status: 429,
+          headers: applySecurityHeaders({
+            'Content-Type': 'application/json',
+            'Retry-After': '3600',
+            ...corsHeaders,
+          }),
+        });
+      }
+
+      let data;
+      try {
+        data = await request.json();
+      } catch (err) {
+        return new Response(JSON.stringify({ 
+          error: 'Invalid JSON in request body' 
+        }), {
+          status: 400,
           headers: applySecurityHeaders({
             'Content-Type': 'application/json',
             ...corsHeaders,
@@ -167,7 +206,6 @@ export async function onRequest(context) {
         });
       }
 
-      const data = await request.json();
       const { encryptedData, ttl = 24, files = [] } = data;
 
       // Validate TTL
@@ -236,7 +274,8 @@ export async function onRequest(context) {
         files,
         createdAt: Date.now(),
         viewed: false,
-        clientIP, // For audit trail
+        clientIP,
+        userAgent: request.headers.get('User-Agent') || 'unknown',
       };
 
       // Store in KV with TTL
@@ -250,7 +289,7 @@ export async function onRequest(context) {
       );
 
       // Send Discord notification
-      await sendDiscordNotification({
+      await sendDiscordNotification(env, clientIP, {
         title: '🔒 Secret Created (E2EE)',
         color: 3066993,
         ttl,
@@ -323,18 +362,20 @@ export async function onRequest(context) {
     // ==========================================
     if (request.method === 'POST' && path.startsWith('secret/') && path.endsWith('/view')) {
       // Rate limit check
-      if (!await checkRateLimit('view', RATE_LIMITS.VIEW_SECRET_PER_IP_PER_HOUR)) {
-        await sendDiscordNotification({
+      if (!await checkRateLimit(env, 'view', clientIP, RATE_LIMITS.VIEW_SECRET_PER_IP_PER_HOUR)) {
+        await sendDiscordNotification(env, clientIP, {
           title: '🚨 Rate Limit Exceeded - View',
           color: 15158332,
         });
         
         return new Response(JSON.stringify({ 
-          error: 'Rate limit exceeded. Please try again later.' 
+          error: 'Rate limit exceeded. Please try again later.',
+          retryAfter: 3600,
         }), {
           status: 429,
           headers: applySecurityHeaders({
             'Content-Type': 'application/json',
+            'Retry-After': '3600',
             ...corsHeaders,
           }),
         });
@@ -375,7 +416,7 @@ export async function onRequest(context) {
       await env.SECRETS_KV.delete(kvKey);
 
       // Send Discord notification
-      await sendDiscordNotification({
+      await sendDiscordNotification(env, clientIP, {
         title: '👁️ Secret Viewed (E2EE)',
         color: 15158332,
         messageLength: parsed.encryptedData?.length || 0,
@@ -399,6 +440,7 @@ export async function onRequest(context) {
     // ==========================================
     if (request.method === 'GET' && path === 'admin/stats') {
       if (!validateAdminToken(request, env)) {
+        console.log('Admin auth failed - invalid token');
         return new Response(JSON.stringify({ 
           error: 'Unauthorized' 
         }), {
@@ -430,6 +472,7 @@ export async function onRequest(context) {
     // ==========================================
     if (request.method === 'POST' && path === 'admin/purge') {
       if (!validateAdminToken(request, env)) {
+        console.log('Admin auth failed - invalid token');
         return new Response(JSON.stringify({ 
           error: 'Unauthorized' 
         }), {
@@ -442,13 +485,15 @@ export async function onRequest(context) {
       }
 
       // Rate limit admin actions
-      if (!await checkRateLimit('admin', RATE_LIMITS.ADMIN_ACTION_PER_HOUR)) {
+      if (!await checkRateLimit(env, 'admin', clientIP, RATE_LIMITS.ADMIN_ACTION_PER_HOUR)) {
         return new Response(JSON.stringify({ 
-          error: 'Rate limit exceeded for admin actions' 
+          error: 'Rate limit exceeded for admin actions',
+          retryAfter: 3600,
         }), {
           status: 429,
           headers: applySecurityHeaders({
             'Content-Type': 'application/json',
+            'Retry-After': '3600',
             ...corsHeaders,
           }),
         });
@@ -460,7 +505,7 @@ export async function onRequest(context) {
         list.keys.map(key => env.SECRETS_KV.delete(key.name))
       );
 
-      await sendDiscordNotification({
+      await sendDiscordNotification(env, clientIP, {
         title: '🗑️ Admin Purge',
         color: 10038562,
       });
@@ -475,8 +520,12 @@ export async function onRequest(context) {
       });
     }
 
+    // ==========================================
+    // NOT FOUND
+    // ==========================================
     return new Response(JSON.stringify({ 
-      error: 'Not Found' 
+      error: 'Not Found',
+      path: path,
     }), { 
       status: 404,
       headers: applySecurityHeaders({
@@ -486,7 +535,8 @@ export async function onRequest(context) {
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Unhandled error:', error);
+    console.error('Stack:', error.stack);
     
     const isDevelopment = env.ENVIRONMENT === 'development';
     
@@ -506,6 +556,8 @@ export async function onRequest(context) {
 // SCHEDULED CLEANUP (Cron Trigger)
 // ===================================
 export async function scheduled(event, env, ctx) {
+  console.log('Running scheduled cleanup...');
+  
   if (!env.SECRETS_KV) {
     console.error('KV namespace not available in scheduled function');
     return;
@@ -523,16 +575,16 @@ export async function scheduled(event, env, ctx) {
 
     try {
       const parsed = JSON.parse(data);
-      const ttlMs = 24 * 60 * 60 * 1000;
+      const ttlMs = 24 * 60 * 60 * 1000; // Max 24 hours
       
       if (Date.now() - parsed.createdAt > ttlMs) {
         await env.SECRETS_KV.delete(key.name);
         cleaned++;
       }
     } catch (err) {
-      console.error('Error cleaning secret:', err);
+      console.error('Error cleaning secret:', key.name, err);
     }
   }
 
-  console.log(`Cleaned up ${cleaned} expired secrets`);
+  console.log(`Cleanup complete: ${cleaned} secrets removed`);
 }
