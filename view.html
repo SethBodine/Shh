@@ -326,13 +326,29 @@
     const pathParts = window.location.pathname.split('/');
     const secretId = pathParts[pathParts.length - 1];
     
+    console.log('[VIEW] Full pathname:', window.location.pathname);
+    console.log('[VIEW] Path parts:', pathParts);
+    console.log('[VIEW] Extracted secret ID:', secretId);
+    
     // Get encryption key from URL fragment (after #)
     const urlFragment = window.location.hash.slice(1); // Remove #
     
+    console.log('[VIEW] URL hash:', window.location.hash);
+    console.log('[VIEW] Extracted key fragment:', urlFragment);
+    
+    if (!secretId || secretId === 'view' || secretId === '') {
+      showError('Invalid URL: Missing secret ID. URL should be /view/{id}#{key}');
+      console.error('[VIEW] No valid secret ID found in URL');
+      throw new Error('No secret ID in URL');
+    }
+    
     if (!urlFragment) {
-      showError('Invalid link: Missing encryption key');
+      showError('Invalid link: Missing encryption key. URL should be /view/{id}#{key}');
+      console.error('[VIEW] No encryption key in URL fragment');
       throw new Error('No encryption key in URL');
     }
+    
+    console.log('[VIEW] Initialization complete - ID and key present');
 
     const loadingState = document.getElementById('loadingState');
     const warningState = document.getElementById('warningState');

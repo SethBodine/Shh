@@ -384,17 +384,27 @@
       btn.disabled = true;
       btn.textContent = 'Purging...';
 
+      console.log('[ADMIN] Attempting purge with token:', adminToken ? 'SET' : 'NOT SET');
+
       try {
         const res = await fetch(`${API_URL}/admin/purge`, {
           method: 'POST',
-          headers: { 'X-Admin-Token': adminToken }
+          headers: { 
+            'X-Admin-Token': adminToken,
+            'Content-Type': 'application/json'
+          }
         });
 
+        console.log('[ADMIN] Purge response status:', res.status);
+        
         if (!res.ok) {
-          throw new Error('Purge failed');
+          const errorText = await res.text();
+          console.error('[ADMIN] Purge failed:', errorText);
+          throw new Error(`Purge failed with status ${res.status}: ${errorText}`);
         }
 
         const data = await res.json();
+        console.log('[ADMIN] Purge successful:', data);
         
         document.getElementById('purgeConfirm').classList.add('hidden');
         document.getElementById('purgeSuccess').classList.remove('hidden');
@@ -407,7 +417,8 @@
         }, 3000);
 
       } catch (err) {
-        alert('Failed to purge secrets');
+        console.error('[ADMIN] Purge error:', err);
+        alert('Failed to purge secrets: ' + err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = 'Yes, Purge Everything';
