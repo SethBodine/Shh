@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecureShare - One-Time Secret Sharing</title>
+  <title>Shh - Secure Secrets</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
@@ -79,18 +79,18 @@
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold">🔒 SecureShare</h1>
+          <h1 class="text-3xl font-bold">🤫 Shh - Secure Secrets</h1>
           <p class="text-purple-100 mt-1">Share secrets securely with self-destructing links</p>
         </div>
         <div class="flex items-center gap-3">
           <!-- Theme Selector -->
           <select id="themeSelect" class="px-3 py-2 rounded bg-white/20 text-white border border-white/30 text-sm cursor-pointer hover:bg-white/30 transition">
-            <option value="purple">Purple</option>
-            <option value="blue">Ocean Blue</option>
-            <option value="green">Forest Green</option>
-            <option value="orange">Sunset Orange</option>
-            <option value="pink">Sakura Pink</option>
-            <option value="teal">Teal Wave</option>
+            <option value="purple" class="bg-gray-800 text-white">Purple</option>
+            <option value="blue" class="bg-gray-800 text-white">Ocean Blue</option>
+            <option value="green" class="bg-gray-800 text-white">Forest Green</option>
+            <option value="orange" class="bg-gray-800 text-white">Sunset Orange</option>
+            <option value="pink" class="bg-gray-800 text-white">Sakura Pink</option>
+            <option value="teal" class="bg-gray-800 text-white">Teal Wave</option>
           </select>
           <!-- Day/Night Toggle -->
           <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">
@@ -213,6 +213,54 @@
 
   <script>
     const API_URL = '/api';
+    
+    // ===================================
+    // CLIENT-SIDE ENCRYPTION
+    // ===================================
+    
+    // Generate a random encryption key (256-bit)
+    async function generateEncryptionKey() {
+      return await crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['encrypt', 'decrypt']
+      );
+    }
+    
+    // Export key to base64 for URL fragment
+    async function exportKeyToBase64(key) {
+      const exported = await crypto.subtle.exportKey('raw', key);
+      return btoa(String.fromCharCode(...new Uint8Array(exported)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+    }
+    
+    // Encrypt data with AES-GCM
+    async function encryptData(plaintext, key) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(plaintext);
+      
+      // Generate random IV (12 bytes for GCM)
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        data
+      );
+      
+      // Combine IV + ciphertext
+      const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+      combined.set(iv, 0);
+      combined.set(new Uint8Array(ciphertext), iv.length);
+      
+      // Return as base64
+      return btoa(String.fromCharCode(...combined))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+    }
     
     // ===================================
     // THEME & MODE MANAGEMENT
@@ -351,28 +399,43 @@
       }
 
       createBtn.disabled = true;
-      createBtn.textContent = 'Creating...';
+      createBtn.textContent = 'Encrypting...';
 
       try {
-        // Prepare files (if enabled)
+        // STEP 1: Generate encryption key (client-side only!)
+        const encryptionKey = await generateEncryptionKey();
+        const keyBase64 = await exportKeyToBase64(encryptionKey);
+        
+        // STEP 2: Encrypt the secret (client-side only!)
+        const encryptedData = await encryptData(text, encryptionKey);
+        
+        // STEP 3: Prepare files (if enabled)
         const files = [];
         if (!document.getElementById('fileUploadSection').classList.contains('hidden')) {
           const fileInputFiles = Array.from(fileInput.files);
           for (const file of fileInputFiles) {
-            const base64 = await fileToBase64(file);
+            const fileText = await fileToText(file);
+            const encryptedFile = await encryptData(fileText, encryptionKey);
             files.push({
               name: file.name,
               type: file.type,
               size: file.size,
-              data: base64,
+              data: encryptedFile, // Encrypted!
             });
           }
         }
 
+        createBtn.textContent = 'Storing...';
+
+        // STEP 4: Send ONLY encrypted data to server
         const res = await fetch(`${API_URL}/secret`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, ttl, files }),
+          body: JSON.stringify({ 
+            encryptedData,  // Server never sees plaintext!
+            ttl, 
+            files 
+          }),
         });
 
         if (!res.ok) {
@@ -382,7 +445,11 @@
 
         const data = await res.json();
         
-        document.getElementById('secretLink').value = data.url;
+        // STEP 5: Build URL with encryption key in fragment (never sent to server!)
+        // Format: /view/{secretId}#{encryptionKey}
+        const secretUrl = `${window.location.origin}/view/${data.id}#${keyBase64}`;
+        
+        document.getElementById('secretLink').value = secretUrl;
         document.getElementById('expiryTime').textContent = 
           ttl === 1 ? '1 hour' : `${ttl} hours`;
         
@@ -424,12 +491,12 @@
       successMessage.classList.add('hidden');
     }
 
-    async function fileToBase64(file) {
+    async function fileToText(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsText(file);
       });
     }
   </script>

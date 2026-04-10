@@ -1,0 +1,13 @@
+name = "shh-secrets"
+main = "functions/api/[[path]].js"
+compatibility_date = "2024-01-01"
+
+# IMPORTANT: Replace PASTE_YOUR_KV_NAMESPACE_ID_HERE with your actual KV namespace ID
+# Get this from: Cloudflare Dashboard > Workers & Pages > KV > Create namespace
+kv_namespaces = [
+  { binding = "SECRETS_KV", id = "5f5530e67cb342028f8f8c30fb443791" }
+]
+
+# Cron trigger for cleanup (runs every 6 hours)
+[triggers]
+crons = ["0 */6 * * *"]

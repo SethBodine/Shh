@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>View Secret - SecureShare</title>
+  <title>View Secret - Shh</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
@@ -79,18 +79,18 @@
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold">🔒 SecureShare</h1>
+          <h1 class="text-3xl font-bold">🤫 Shh - Secure Secrets</h1>
           <p class="text-purple-100 mt-1">Share secrets securely with self-destructing links</p>
         </div>
         <div class="flex items-center gap-3">
           <!-- Theme Selector -->
           <select id="themeSelect" class="px-3 py-2 rounded bg-white/20 text-white border border-white/30 text-sm cursor-pointer hover:bg-white/30 transition">
-            <option value="purple">Purple</option>
-            <option value="blue">Ocean Blue</option>
-            <option value="green">Forest Green</option>
-            <option value="orange">Sunset Orange</option>
-            <option value="pink">Sakura Pink</option>
-            <option value="teal">Teal Wave</option>
+            <option value="purple" class="bg-gray-800 text-white">Purple</option>
+            <option value="blue" class="bg-gray-800 text-white">Ocean Blue</option>
+            <option value="green" class="bg-gray-800 text-white">Forest Green</option>
+            <option value="orange" class="bg-gray-800 text-white">Sunset Orange</option>
+            <option value="pink" class="bg-gray-800 text-white">Sakura Pink</option>
+            <option value="teal" class="bg-gray-800 text-white">Teal Wave</option>
           </select>
           <!-- Day/Night Toggle -->
           <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">
@@ -203,6 +203,57 @@
     const API_URL = '/api';
     
     // ===================================
+    // CLIENT-SIDE DECRYPTION
+    // ===================================
+    
+    // Import key from base64 (from URL fragment)
+    async function importKeyFromBase64(base64) {
+      const base64url = base64.replace(/-/g, '+').replace(/_/g, '/');
+      const padding = '='.repeat((4 - base64url.length % 4) % 4);
+      const base64Padded = base64url + padding;
+      
+      const binary = atob(base64Padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      
+      return await crypto.subtle.importKey(
+        'raw',
+        bytes,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+    }
+    
+    // Decrypt data with AES-GCM
+    async function decryptData(encryptedBase64, key) {
+      const base64url = encryptedBase64.replace(/-/g, '+').replace(/_/g, '/');
+      const padding = '='.repeat((4 - base64url.length % 4) % 4);
+      const base64Padded = base64url + padding;
+      
+      const binary = atob(base64Padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      
+      // Extract IV (first 12 bytes) and ciphertext
+      const iv = bytes.slice(0, 12);
+      const ciphertext = bytes.slice(12);
+      
+      const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        ciphertext
+      );
+      
+      const decoder = new TextDecoder();
+      return decoder.decode(plaintext);
+    }
+    
+    // ===================================
     // THEME & MODE MANAGEMENT
     // ===================================
     
@@ -274,6 +325,14 @@
     // Get secret ID from URL
     const pathParts = window.location.pathname.split('/');
     const secretId = pathParts[pathParts.length - 1];
+    
+    // Get encryption key from URL fragment (after #)
+    const urlFragment = window.location.hash.slice(1); // Remove #
+    
+    if (!urlFragment) {
+      showError('Invalid link: Missing encryption key');
+      throw new Error('No encryption key in URL');
+    }
 
     const loadingState = document.getElementById('loadingState');
     const warningState = document.getElementById('warningState');
@@ -321,9 +380,15 @@
     document.getElementById('viewBtn').addEventListener('click', async () => {
       const btn = document.getElementById('viewBtn');
       btn.disabled = true;
-      btn.textContent = 'Loading secret...';
+      btn.textContent = 'Fetching encrypted secret...';
 
       try {
+        // STEP 1: Import decryption key from URL fragment
+        const decryptionKey = await importKeyFromBase64(urlFragment);
+        
+        btn.textContent = 'Retrieving...';
+        
+        // STEP 2: Fetch encrypted data from server
         const res = await fetch(`${API_URL}/secret/${secretId}/view`, {
           method: 'POST',
         });
@@ -335,39 +400,49 @@
         }
 
         const data = await res.json();
+        
+        btn.textContent = 'Decrypting...';
+        
+        // STEP 3: Decrypt the data client-side
+        const plaintext = await decryptData(data.encryptedData, decryptionKey);
 
         // Show content
         warningState.classList.add('hidden');
         contentState.classList.remove('hidden');
 
-        document.getElementById('secretContent').textContent = data.text || '(No text content)';
+        document.getElementById('secretContent').textContent = plaintext || '(No text content)';
 
-        // Show files if any
+        // STEP 4: Decrypt files if any
         if (data.files && data.files.length > 0) {
           document.getElementById('filesSection').classList.remove('hidden');
           const filesList = document.getElementById('filesList');
           
-          filesList.innerHTML = data.files.map(file => `
-            <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3">
-              <div class="flex items-center gap-2">
-                <span class="text-2xl">📄</span>
-                <div>
-                  <div class="font-medium text-gray-800">${escapeHtml(file.name)}</div>
-                  <div class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</div>
+          const filesHTML = [];
+          for (const file of data.files) {
+            const decryptedFileData = await decryptData(file.data, decryptionKey);
+            filesHTML.push(`
+              <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-2xl">📄</span>
+                  <div>
+                    <div class="font-medium text-gray-800">${escapeHtml(file.name)}</div>
+                    <div class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</div>
+                  </div>
                 </div>
+                <button 
+                  onclick="downloadDecryptedFile('${escapeHtml(file.name)}', '${file.type}', \`${decryptedFileData}\`)"
+                  class="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700">
+                  Download
+                </button>
               </div>
-              <button 
-                onclick="downloadFile('${escapeHtml(file.name)}', '${file.type}', '${file.data}')"
-                class="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700">
-                Download
-              </button>
-            </div>
-          `).join('');
+            `);
+          }
+          filesList.innerHTML = filesHTML.join('');
         }
 
       } catch (err) {
         console.error('Error viewing secret:', err);
-        showError('Failed to retrieve secret');
+        showError('Failed to decrypt secret. The link may be corrupted.');
       }
     });
 
@@ -400,11 +475,13 @@
       return div.innerHTML;
     }
 
-    function downloadFile(name, type, base64Data) {
+    function downloadDecryptedFile(name, type, decryptedText) {
+      const blob = new Blob([decryptedText], { type });
       const link = document.createElement('a');
-      link.href = `data:${type};base64,${base64Data}`;
+      link.href = URL.createObjectURL(blob);
       link.download = name;
       link.click();
+      URL.revokeObjectURL(link.href);
     }
 
     // Initialize
