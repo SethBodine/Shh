@@ -582,7 +582,25 @@
 
     // Create another secret
     document.getElementById('createAnotherBtn').addEventListener('click', () => {
-      location.reload();
+      // Reset form
+      secretText.value = '';
+      secretText.disabled = false;
+      charCount.textContent = '0';
+      document.getElementById('ttlSelect').disabled = false;
+      document.getElementById('ttlSelect').value = '12';
+      
+      if (!document.getElementById('fileUploadSection').classList.contains('hidden')) {
+        fileInput.value = '';
+        fileList.innerHTML = '';
+      }
+      
+      // Hide success message
+      successMessage.classList.add('hidden');
+      
+      // Show create button
+      createBtn.classList.remove('hidden');
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create Secret Link';
     });
 
     function showError(message) {

@@ -200,7 +200,7 @@
       <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-2xl font-bold mb-4">Active Secrets</h2>
         <p class="text-gray-600 text-sm mb-4">
-          Only secret IDs are shown for security. Content is never displayed to admins.
+          Metadata shown only (encrypted content never visible to admins)
         </p>
         
         <div id="secretList" class="space-y-2">
@@ -289,6 +289,38 @@
     initializeTheme();
 
     // ===================================
+    // SESSION PERSISTENCE
+    // ===================================
+    
+    // Check for saved session on load
+    const savedToken = sessionStorage.getItem('adminToken');
+    if (savedToken) {
+      adminToken = savedToken;
+      // Verify token is still valid
+      verifyAndLoadDashboard();
+    }
+    
+    async function verifyAndLoadDashboard() {
+      try {
+        const res = await fetch(`${API_URL}/admin/stats`, {
+          headers: { 'X-Admin-Token': adminToken }
+        });
+
+        if (res.ok) {
+          loginSection.classList.add('hidden');
+          dashboardSection.classList.remove('hidden');
+          loadStats();
+        } else {
+          // Token invalid, clear it
+          sessionStorage.removeItem('adminToken');
+          adminToken = null;
+        }
+      } catch (err) {
+        console.error('Session verification failed:', err);
+      }
+    }
+
+    // ===================================
     // ADMIN PORTAL LOGIC
     // ===================================
 
@@ -310,6 +342,9 @@
         });
 
         if (res.ok) {
+          // Save token to session
+          sessionStorage.setItem('adminToken', adminToken);
+          
           loginSection.classList.add('hidden');
           dashboardSection.classList.remove('hidden');
           loadStats();
@@ -325,6 +360,7 @@
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', () => {
       adminToken = null;
+      sessionStorage.removeItem('adminToken');
       loginSection.classList.remove('hidden');
       dashboardSection.classList.add('hidden');
       document.getElementById('adminToken').value = '';
@@ -346,17 +382,39 @@
         document.getElementById('totalSecrets').textContent = data.totalSecrets;
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 
-        // Display secret list
+        // Display secret list with metadata
         const secretList = document.getElementById('secretList');
         if (data.secrets.length === 0) {
           secretList.innerHTML = '<p class="text-gray-500 text-sm">No active secrets</p>';
         } else {
-          secretList.innerHTML = data.secrets.map(s => `
-            <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3">
-              <code class="text-sm text-gray-700">${s.id}</code>
-              <span class="text-xs text-gray-500">Active</span>
-            </div>
-          `).join('');
+          secretList.innerHTML = data.secrets.map(s => {
+            const createdDate = new Date(s.createdAt);
+            const timeAgo = getTimeAgo(createdDate);
+            
+            return `
+              <div class="bg-gray-50 border border-gray-200 rounded p-4">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                      <code class="text-sm text-gray-700 font-mono">${s.id}</code>
+                      ${s.hasFiles ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">📎 ' + s.fileCount + ' file(s)</span>' : ''}
+                    </div>
+                    <div class="text-xs text-gray-600 space-y-1">
+                      <div>🕒 Created: ${createdDate.toLocaleString()} (${timeAgo})</div>
+                      <div>🌐 IP: ${s.clientIP || 'unknown'}</div>
+                      <div>👁️ Viewed: ${s.viewed ? 'Yes' : 'No'}</div>
+                    </div>
+                  </div>
+                  <button 
+                    onclick="deleteSingleSecret('${s.id}')"
+                    class="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition"
+                    title="Delete this secret">
+                    🗑️ Delete
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
         }
 
       } catch (err) {
@@ -365,6 +423,40 @@
         document.getElementById('logoutBtn').click();
       }
     }
+
+    // Helper: Time ago
+    function getTimeAgo(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      
+      if (seconds < 60) return `${seconds}s ago`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      return `${Math.floor(seconds / 86400)}d ago`;
+    }
+
+    // Delete single secret
+    window.deleteSingleSecret = async function(secretId) {
+      if (!confirm(`Delete secret ${secretId}?\n\nThis cannot be undone.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/admin/secret/${secretId}`, {
+          method: 'DELETE',
+          headers: { 'X-Admin-Token': adminToken }
+        });
+
+        if (!res.ok) {
+          throw new Error('Delete failed');
+        }
+
+        // Refresh the list
+        loadStats();
+      } catch (err) {
+        console.error('Failed to delete secret:', err);
+        alert('Failed to delete secret');
+      }
+    };
 
     // Refresh stats
     document.getElementById('refreshBtn').addEventListener('click', loadStats);

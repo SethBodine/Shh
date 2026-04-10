@@ -454,11 +454,79 @@ export async function onRequest(context) {
 
       const list = await env.SECRETS_KV.list({ prefix: 'secret:' });
       
+      // Get metadata for each secret
+      const secretsWithMetadata = [];
+      for (const key of list.keys) {
+        const data = await env.SECRETS_KV.get(key.name);
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            secretsWithMetadata.push({
+              id: key.name.replace('secret:', ''),
+              createdAt: parsed.createdAt,
+              clientIP: parsed.clientIP,
+              viewed: parsed.viewed,
+              hasFiles: parsed.files && parsed.files.length > 0,
+              fileCount: parsed.files?.length || 0,
+            });
+          } catch (err) {
+            console.error('Error parsing secret metadata:', err);
+          }
+        }
+      }
+      
       return new Response(JSON.stringify({
         totalSecrets: list.keys.length,
-        secrets: list.keys.map(k => ({
-          id: k.name.replace('secret:', ''),
-        })),
+        secrets: secretsWithMetadata,
+      }), {
+        headers: applySecurityHeaders({
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        }),
+      });
+    }
+
+    // ==========================================
+    // ADMIN: DELETE SINGLE SECRET
+    // ==========================================
+    if (request.method === 'DELETE' && path.startsWith('admin/secret/')) {
+      if (!validateAdminToken(request, env)) {
+        console.log('Admin auth failed - invalid token');
+        return new Response(JSON.stringify({ 
+          error: 'Unauthorized' 
+        }), {
+          status: 401,
+          headers: applySecurityHeaders({
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          }),
+        });
+      }
+
+      const secretId = path.split('/')[2];
+      
+      if (!isValidUUID(secretId)) {
+        return new Response(JSON.stringify({ 
+          error: 'Invalid secret ID format' 
+        }), {
+          status: 400,
+          headers: applySecurityHeaders({
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          }),
+        });
+      }
+
+      const kvKey = generateSecretKey(secretId);
+      await env.SECRETS_KV.delete(kvKey);
+
+      await sendDiscordNotification(env, clientIP, {
+        title: '🗑️ Admin Delete Single Secret',
+        color: 15844367,
+      });
+
+      return new Response(JSON.stringify({
+        deleted: secretId,
       }), {
         headers: applySecurityHeaders({
           'Content-Type': 'application/json',
