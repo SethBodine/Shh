@@ -206,9 +206,109 @@
     </div>
 
     <!-- Admin Link -->
-    <div class="text-center text-gray-500 text-sm">
+    <div class="text-center text-gray-500 text-sm mb-4">
       <a href="/admin" class="hover:text-purple-600">Admin Portal</a>
     </div>
+
+    <!-- API Documentation (Collapsible) -->
+    <details class="bg-white rounded-lg shadow-md p-6 mb-4">
+      <summary class="cursor-pointer font-semibold text-lg text-gray-800 hover:text-purple-600">
+        📚 API Documentation
+      </summary>
+      
+      <div class="mt-4 space-y-4 text-sm">
+        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+          <h4 class="font-semibold text-gray-800 mb-2">Base URL</h4>
+          <code class="text-purple-600">/api</code>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+          <h4 class="font-semibold text-gray-800 mb-2">Health Check</h4>
+          <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/health</code></p>
+          <p class="text-gray-600 mb-1">Returns system status and configuration</p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
+  "status": "ok",
+  "kvBound": true,
+  "adminTokenSet": true,
+  "features": {...},
+  "rateLimits": {...}
+}</pre>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+          <h4 class="font-semibold text-gray-800 mb-2">Create Secret</h4>
+          <p class="text-gray-600 mb-2"><strong>POST</strong> <code class="text-purple-600">/api/secret</code></p>
+          <p class="text-gray-600 mb-1"><strong>Request Body:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
+  "encryptedData": "base64url_encrypted_content",
+  "ttl": 12,  // hours (1-24)
+  "files": []  // optional
+}</pre>
+          <p class="text-gray-600 mt-2 mb-1"><strong>Response:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
+  "id": "uuid-v4",
+  "expiresIn": 12
+}</pre>
+          <p class="text-xs text-gray-500 mt-2">⚠️ Data must be client-side encrypted with AES-256-GCM before sending</p>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+          <h4 class="font-semibold text-gray-800 mb-2">Check Secret Metadata</h4>
+          <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/secret/{id}/metadata</code></p>
+          <p class="text-gray-600 mb-1"><strong>Response:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
+  "exists": true,
+  "viewed": false,
+  "hasFiles": false,
+  "fileCount": 0
+}</pre>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+          <h4 class="font-semibold text-gray-800 mb-2">View Secret (One-Time)</h4>
+          <p class="text-gray-600 mb-2"><strong>POST</strong> <code class="text-purple-600">/api/secret/{id}/view</code></p>
+          <p class="text-gray-600 mb-1"><strong>Response:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
+  "encryptedData": "base64url_encrypted_content",
+  "files": []
+}</pre>
+          <p class="text-xs text-gray-500 mt-2">⚠️ Secret is deleted immediately after retrieval. Client must decrypt with key from URL fragment.</p>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+          <h4 class="font-semibold text-gray-800 mb-2">Admin Stats</h4>
+          <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/admin/stats</code></p>
+          <p class="text-gray-600 mb-1"><strong>Headers:</strong> <code>X-Admin-Token: your_token</code></p>
+          <p class="text-gray-600 mb-1"><strong>Response:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
+  "totalSecrets": 5,
+  "secrets": [{"id": "uuid"}, ...]
+}</pre>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+          <h4 class="font-semibold text-gray-800 mb-2">Rate Limits</h4>
+          <ul class="list-disc list-inside text-gray-600 space-y-1">
+            <li>Create: 10 secrets per IP per hour</li>
+            <li>View: 50 views per IP per hour</li>
+            <li>Admin: 5 actions per hour</li>
+          </ul>
+          <p class="text-xs text-gray-500 mt-2">Configurable via environment variables</p>
+        </div>
+
+        <div class="bg-blue-50 p-4 rounded border border-blue-200">
+          <h4 class="font-semibold text-blue-800 mb-2">🔐 Security Notes</h4>
+          <ul class="list-disc list-inside text-blue-700 space-y-1 text-xs">
+            <li>All secrets are encrypted client-side with AES-256-GCM</li>
+            <li>Server never sees plaintext (zero-knowledge architecture)</li>
+            <li>Encryption keys are in URL fragments (never sent to server)</li>
+            <li>One-time use: secrets are deleted immediately after viewing</li>
+            <li>Rate limiting prevents abuse</li>
+            <li>Admin tokens use timing-safe comparison</li>
+          </ul>
+        </div>
+      </div>
+    </details>
   </div>
 
   <script>
