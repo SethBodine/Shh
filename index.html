@@ -305,7 +305,48 @@
             <li>One-time use: secrets are deleted immediately after viewing</li>
             <li>Rate limiting prevents abuse</li>
             <li>Admin tokens use timing-safe comparison</li>
+            <li><strong>Anonymous users cannot list secret IDs</strong> - only admins can</li>
+            <li><strong>Unauthenticated API access</strong> - only allows retrieving specific secrets with valid ID</li>
           </ul>
+        </div>
+
+        <div class="bg-green-50 p-4 rounded border border-green-200">
+          <h4 class="font-semibold text-green-800 mb-2">💻 Client-Side Decryption Example</h4>
+          <p class="text-xs text-green-700 mb-2">How to decrypt a secret programmatically:</p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">// Extract ID and key from URL
+const url = "https://shh.example.com/view/{id}#{key}";
+const [path, fragment] = url.split('#');
+const secretId = path.split('/').pop();
+const encryptionKey = fragment;
+
+// Fetch encrypted secret
+const res = await fetch(`/api/secret/${secretId}/view`, {
+  method: 'POST'
+});
+const { encryptedData } = await res.json();
+
+// Import key from base64url
+const keyBytes = Uint8Array.from(
+  atob(encryptionKey.replace(/-/g,'+').replace(/_/g,'/')),
+  c => c.charCodeAt(0)
+);
+const key = await crypto.subtle.importKey(
+  'raw', keyBytes, {name: 'AES-GCM'}, false, ['decrypt']
+);
+
+// Decrypt
+const combined = Uint8Array.from(
+  atob(encryptedData.replace(/-/g,'+').replace(/_/g,'/')),
+  c => c.charCodeAt(0)
+);
+const iv = combined.slice(0, 12);
+const ciphertext = combined.slice(12);
+
+const plaintext = await crypto.subtle.decrypt(
+  {name: 'AES-GCM', iv}, key, ciphertext
+);
+const secret = new TextDecoder().decode(plaintext);
+console.log('Secret:', secret);</pre>
         </div>
       </div>
     </details>
@@ -432,6 +473,17 @@
     
     // Initialize on load
     initializeTheme();
+    
+    // Clear form on page load (in case of refresh)
+    window.addEventListener('DOMContentLoaded', () => {
+      secretText.value = '';
+      charCount.textContent = '0';
+      document.getElementById('ttlSelect').value = '12';
+      if (!document.getElementById('fileUploadSection').classList.contains('hidden')) {
+        fileInput.value = '';
+        fileList.innerHTML = '';
+      }
+    });
     
     // ===================================
     // CHARACTER COUNTER

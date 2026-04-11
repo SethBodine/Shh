@@ -138,7 +138,7 @@ export async function onRequest(context) {
 
   try {
     // ==========================================
-    // HEALTH CHECK
+    // HEALTH CHECK (PUBLIC - No auth required)
     // ==========================================
     if (request.method === 'GET' && path === 'health') {
       return new Response(JSON.stringify({
@@ -159,6 +159,12 @@ export async function onRequest(context) {
           discordWebhookSet: !!env.DISCORD_WEBHOOK_URL,
         },
         rateLimits: RATE_LIMITS,
+        security: {
+          anonymousCanListSecrets: false,
+          adminOnlyEndpoints: ['/admin/stats', '/admin/purge', '/admin/secret/{id}'],
+          publicEndpoints: ['/health'],
+          authenticatedEndpoints: ['/secret (POST)', '/secret/{id}/metadata (GET)', '/secret/{id}/view (POST)'],
+        },
       }), {
         headers: applySecurityHeaders({
           'Content-Type': 'application/json',
