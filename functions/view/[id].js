@@ -5,13 +5,26 @@
 
 /**
  * This handles /view/{id} routes
- * Cloudflare Pages will automatically route /view/* here
+ * The [id] syntax makes Cloudflare Pages capture the ID as params.id
  */
 
 export async function onRequest(context) {
   const { params, env, request } = context;
   const secretId = params.id;
   
-  // Just serve view.html - the JavaScript will extract the ID from the URL
-  return env.ASSETS.fetch(new Request(new URL('/view.html', request.url), request));
+  console.log('[VIEW HANDLER] Request URL:', request.url);
+  console.log('[VIEW HANDLER] Secret ID from params:', secretId);
+  console.log('[VIEW HANDLER] Original pathname:', new URL(request.url).pathname);
+  
+  // Fetch the view.html asset
+  // We need to construct a new URL that points to /view.html on the same origin
+  const viewHtmlUrl = new URL('/view.html', new URL(request.url).origin);
+  
+  console.log('[VIEW HANDLER] Fetching:', viewHtmlUrl.href);
+  
+  const response = await env.ASSETS.fetch(viewHtmlUrl);
+  
+  console.log('[VIEW HANDLER] Response status:', response.status);
+  
+  return response;
 }
