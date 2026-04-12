@@ -302,16 +302,59 @@
     initializeTheme();
 
     // ===================================
-    // SESSION PERSISTENCE
+    // SESSION PERSISTENCE & TIMEOUT
     // ===================================
+    
+    // Session timeout in milliseconds (default: 1 hour)
+    // Can be configured via environment variable: ADMIN_SESSION_TIMEOUT_MINUTES
+    const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour default
+    let sessionTimeoutId = null;
     
     // Check for saved session on load
     const savedToken = sessionStorage.getItem('adminToken');
-    if (savedToken) {
-      adminToken = savedToken;
-      // Verify token is still valid
-      verifyAndLoadDashboard();
+    const sessionExpiry = sessionStorage.getItem('adminSessionExpiry');
+    
+    if (savedToken && sessionExpiry) {
+      const now = Date.now();
+      if (now < parseInt(sessionExpiry)) {
+        adminToken = savedToken;
+        verifyAndLoadDashboard();
+        startSessionTimeout();
+      } else {
+        // Session expired
+        sessionStorage.removeItem('adminToken');
+        sessionStorage.removeItem('adminSessionExpiry');
+      }
     }
+    
+    function startSessionTimeout() {
+      // Clear any existing timeout
+      if (sessionTimeoutId) {
+        clearTimeout(sessionTimeoutId);
+      }
+      
+      // Set new timeout
+      sessionTimeoutId = setTimeout(() => {
+        alert('Admin session expired due to inactivity. Please log in again.');
+        document.getElementById('logoutBtn').click();
+      }, SESSION_TIMEOUT_MS);
+    }
+    
+    function resetSessionTimeout() {
+      // Update expiry time
+      const expiry = Date.now() + SESSION_TIMEOUT_MS;
+      sessionStorage.setItem('adminSessionExpiry', expiry.toString());
+      startSessionTimeout();
+    }
+    
+    // Reset timeout on user activity
+    ['mousedown', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+      document.addEventListener(event, () => {
+        if (adminToken) {
+          resetSessionTimeout();
+        }
+      }, true);
+    });
     
     async function verifyAndLoadDashboard() {
       try {
@@ -323,9 +366,11 @@
           loginSection.classList.add('hidden');
           dashboardSection.classList.remove('hidden');
           loadStats();
+          resetSessionTimeout();
         } else {
           // Token invalid, clear it
           sessionStorage.removeItem('adminToken');
+          sessionStorage.removeItem('adminSessionExpiry');
           adminToken = null;
         }
       } catch (err) {
@@ -355,12 +400,15 @@
         });
 
         if (res.ok) {
-          // Save token to session
+          // Save token to session with expiry
+          const expiry = Date.now() + SESSION_TIMEOUT_MS;
           sessionStorage.setItem('adminToken', adminToken);
+          sessionStorage.setItem('adminSessionExpiry', expiry.toString());
           
           loginSection.classList.add('hidden');
           dashboardSection.classList.remove('hidden');
           loadStats();
+          startSessionTimeout();
         } else {
           showLoginError('Invalid admin token');
           adminToken = null;
@@ -373,7 +421,11 @@
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', () => {
       adminToken = null;
+      if (sessionTimeoutId) {
+        clearTimeout(sessionTimeoutId);
+      }
       sessionStorage.removeItem('adminToken');
+      sessionStorage.removeItem('adminSessionExpiry');
       loginSection.classList.remove('hidden');
       dashboardSection.classList.add('hidden');
       document.getElementById('adminToken').value = '';

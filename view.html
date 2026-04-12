@@ -455,24 +455,47 @@
           const filesList = document.getElementById('filesList');
           
           const filesHTML = [];
-          for (const file of data.files) {
-            const decryptedFileData = await decryptData(file.data, decryptionKey);
-            filesHTML.push(`
-              <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3">
-                <div class="flex items-center gap-2">
-                  <span class="text-2xl">📄</span>
-                  <div>
-                    <div class="font-medium text-gray-800">${escapeHtml(file.name)}</div>
-                    <div class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</div>
+          for (let i = 0; i < data.files.length; i++) {
+            const file = data.files[i];
+            try {
+              const decryptedFileData = await decryptData(file.data, decryptionKey);
+              
+              // Store decrypted file data in a data attribute
+              filesHTML.push(`
+                <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3" data-file-index="${i}">
+                  <div class="flex items-center gap-2">
+                    <span class="text-2xl">📄</span>
+                    <div>
+                      <div class="font-medium text-gray-800">${escapeHtml(file.name)}</div>
+                      <div class="text-xs text-gray-500">${formatFileSize(file.size)}</div>
+                    </div>
+                  </div>
+                  <button 
+                    onclick="downloadFile(${i}, '${escapeHtml(file.name)}', '${file.type}')"
+                    class="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700">
+                    Download
+                  </button>
+                </div>
+              `);
+              
+              // Store decrypted data for download
+              window.decryptedFiles = window.decryptedFiles || [];
+              window.decryptedFiles[i] = decryptedFileData;
+              
+            } catch (err) {
+              console.error('Error decrypting file:', file.name, err);
+              filesHTML.push(`
+                <div class="flex items-center justify-between bg-red-50 border border-red-200 rounded p-3">
+                  <div class="flex items-center gap-2">
+                    <span class="text-2xl">⚠️</span>
+                    <div>
+                      <div class="font-medium text-red-800">${escapeHtml(file.name)}</div>
+                      <div class="text-xs text-red-600">Decryption failed</div>
+                    </div>
                   </div>
                 </div>
-                <button 
-                  onclick="downloadDecryptedFile('${escapeHtml(file.name)}', '${file.type}', \`${decryptedFileData}\`)"
-                  class="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700">
-                  Download
-                </button>
-              </div>
-            `);
+              `);
+            }
           }
           filesList.innerHTML = filesHTML.join('');
         }
@@ -512,14 +535,35 @@
       return div.innerHTML;
     }
 
-    function downloadDecryptedFile(name, type, decryptedText) {
-      const blob = new Blob([decryptedText], { type });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = name;
-      link.click();
-      URL.revokeObjectURL(link.href);
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
+
+    // Download file using blob (avoids "too many arguments" error)
+    window.downloadFile = function(fileIndex, filename, mimeType) {
+      const decryptedData = window.decryptedFiles[fileIndex];
+      if (!decryptedData) {
+        alert('File data not available');
+        return;
+      }
+      
+      // Create blob from decrypted text data
+      const blob = new Blob([decryptedData], { type: mimeType || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create download link
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
 
     // Initialize
     checkSecret();

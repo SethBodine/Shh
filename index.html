@@ -207,11 +207,6 @@
       </div>
     </div>
 
-    <!-- Admin Link -->
-    <div class="text-center text-gray-500 text-sm mb-4">
-      <a href="/admin" class="hover:text-purple-600">Admin Portal</a>
-    </div>
-
     <!-- API Documentation (Collapsible) -->
     <details class="bg-white rounded-lg shadow-md p-6 mb-4">
       <summary class="cursor-pointer font-semibold text-lg text-gray-800 hover:text-purple-600">
@@ -225,67 +220,120 @@
         </div>
 
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
-          <h4 class="font-semibold text-gray-800 mb-2">Health Check</h4>
+          <h4 class="font-semibold text-gray-800 mb-2">Health Check <span class="text-xs text-green-600">🌐 PUBLIC</span></h4>
           <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/health</code></p>
           <p class="text-gray-600 mb-1">Returns system status and configuration</p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
-  "status": "ok",
-  "kvBound": true,
-  "adminTokenSet": true,
-  "features": {...},
-  "rateLimits": {...}
-}</pre>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash Example:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl https://shh.example.com/api/health</pre>
         </div>
 
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
-          <h4 class="font-semibold text-gray-800 mb-2">Create Secret</h4>
+          <h4 class="font-semibold text-gray-800 mb-2">Create Secret <span class="text-xs text-green-600">🌐 PUBLIC</span></h4>
           <p class="text-gray-600 mb-2"><strong>POST</strong> <code class="text-purple-600">/api/secret</code></p>
-          <p class="text-gray-600 mb-1"><strong>Request Body:</strong></p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
-  "encryptedData": "base64url_encrypted_content",
-  "ttl": 12,  // hours (1-24)
-  "files": []  // optional
-}</pre>
-          <p class="text-gray-600 mt-2 mb-1"><strong>Response:</strong></p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
-  "id": "uuid-v4",
-  "expiresIn": 12
-}</pre>
-          <p class="text-xs text-gray-500 mt-2">⚠️ Data must be client-side encrypted with AES-256-GCM before sending</p>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash Example (Encrypt & Create):</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">#!/bin/bash
+# 1. Generate encryption key (32 bytes = 256 bits)
+KEY=$(openssl rand -base64 32 | tr -d '=')
+
+# 2. Encrypt your secret
+SECRET="My secret message"
+IV=$(openssl rand -base64 12 | tr -d '=')
+ENCRYPTED=$(echo -n "$SECRET" | \
+  openssl enc -aes-256-gcm -K $(echo -n "$KEY" | base64 -d | xxd -p) \
+  -iv $(echo -n "$IV" | base64 -d | xxd -p) | base64 | tr -d '=')
+
+# 3. Combine IV + encrypted (base64url format)
+PAYLOAD="${IV}${ENCRYPTED}" 
+
+# 4. Create secret
+RESULT=$(curl -s -X POST https://shh.example.com/api/secret \
+  -H "Content-Type: application/json" \
+  -d "{\"encryptedData\":\"$PAYLOAD\",\"ttl\":12}")
+
+# 5. Extract secret ID
+ID=$(echo $RESULT | jq -r '.id')
+
+# 6. Build shareable URL
+echo "Share this URL: https://shh.example.com/view/$ID#$KEY"</pre>
+          <p class="text-xs text-orange-600 mt-2">⚠️ Note: Client-side encryption via browser is recommended for security</p>
         </div>
 
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
-          <h4 class="font-semibold text-gray-800 mb-2">Check Secret Metadata</h4>
+          <h4 class="font-semibold text-gray-800 mb-2">Check Secret Metadata <span class="text-xs text-green-600">🌐 PUBLIC</span></h4>
           <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/secret/{id}/metadata</code></p>
-          <p class="text-gray-600 mb-1"><strong>Response:</strong></p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
-  "exists": true,
-  "viewed": false,
-  "hasFiles": false,
-  "fileCount": 0
-}</pre>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash Example:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl https://shh.example.com/api/secret/abc-123-def-456/metadata</pre>
         </div>
 
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
-          <h4 class="font-semibold text-gray-800 mb-2">View Secret (One-Time)</h4>
+          <h4 class="font-semibold text-gray-800 mb-2">View & Decrypt Secret <span class="text-xs text-green-600">🌐 PUBLIC</span></h4>
           <p class="text-gray-600 mb-2"><strong>POST</strong> <code class="text-purple-600">/api/secret/{id}/view</code></p>
-          <p class="text-gray-600 mb-1"><strong>Response:</strong></p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
-  "encryptedData": "base64url_encrypted_content",
-  "files": []
-}</pre>
-          <p class="text-xs text-gray-500 mt-2">⚠️ Secret is deleted immediately after retrieval. Client must decrypt with key from URL fragment.</p>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash Example (View & Decrypt):</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">#!/bin/bash
+# Extract ID and key from URL
+URL="https://shh.example.com/view/abc-123#xY9zK2..."
+ID=$(echo $URL | cut -d'/' -f5 | cut -d'#' -f1)
+KEY=$(echo $URL | cut -d'#' -f2)
+
+# Fetch encrypted secret (one-time use!)
+RESPONSE=$(curl -s -X POST https://shh.example.com/api/secret/$ID/view)
+ENCRYPTED=$(echo $RESPONSE | jq -r '.encryptedData')
+
+# Decrypt (extract IV and ciphertext)
+IV=$(echo -n "$ENCRYPTED" | head -c 16 | base64 -d)
+CIPHER=$(echo -n "$ENCRYPTED" | tail -c +17 | base64 -d)
+
+# Decrypt with AES-256-GCM
+echo -n "$CIPHER" | openssl enc -d -aes-256-gcm \
+  -K $(echo -n "$KEY" | base64 -d | xxd -p) \
+  -iv $(echo -n "$IV" | xxd -p)</pre>
+          <p class="text-xs text-orange-600 mt-2">⚠️ Secret is deleted after viewing - can only be retrieved once</p>
         </div>
 
-        <div class="bg-gray-50 p-4 rounded border border-gray-200">
-          <h4 class="font-semibold text-gray-800 mb-2">Admin Stats</h4>
-          <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/admin/stats</code></p>
-          <p class="text-gray-600 mb-1"><strong>Headers:</strong> <code>X-Admin-Token: your_token</code></p>
-          <p class="text-gray-600 mb-1"><strong>Response:</strong></p>
+        <div class="bg-yellow-50 p-4 rounded border border-yellow-200">
+          <h4 class="font-semibold text-yellow-800 mb-2">Create Secret with File <span class="text-xs text-yellow-700">🔧 FEATURE DISABLED</span></h4>
+          <p class="text-xs text-yellow-700 mb-2">File uploads are currently disabled. To enable, set <code>FILE_UPLOADS_ENABLED: true</code> in worker code.</p>
+          <p class="text-xs text-gray-600 mb-2">💻 <strong>Example when enabled:</strong></p>
           <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
-  "totalSecrets": 5,
-  "secrets": [{"id": "uuid"}, ...]
+  "encryptedData": "base64url_encrypted_text",
+  "ttl": 12,
+  "files": [
+    {
+      "name": "document.pdf",
+      "type": "application/pdf",
+      "size": 1024000,
+      "data": "base64url_encrypted_file_content"
+    }
+  ]
 }</pre>
+          <p class="text-xs text-gray-500 mt-2">Max file size: 10MB. Files are also encrypted client-side.</p>
+        </div>
+
+        <div class="bg-red-50 p-4 rounded border border-red-200">
+          <h4 class="font-semibold text-red-800 mb-2">Admin Stats <span class="text-xs text-red-700">🔐 ADMIN ONLY</span></h4>
+          <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/admin/stats</code></p>
+          <p class="text-xs text-red-700 mb-2">⚠️ Requires admin authentication header</p>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash Example:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl -H "X-Admin-Token: your_admin_token_here" \
+  https://shh.example.com/api/admin/stats</pre>
+        </div>
+
+        <div class="bg-red-50 p-4 rounded border border-red-200">
+          <h4 class="font-semibold text-red-800 mb-2">Admin Purge All <span class="text-xs text-red-700">🔐 ADMIN ONLY</span></h4>
+          <p class="text-gray-600 mb-2"><strong>POST</strong> <code class="text-purple-600">/api/admin/purge</code></p>
+          <p class="text-xs text-red-700 mb-2">⚠️ Requires admin authentication header</p>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash Example:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl -X POST -H "X-Admin-Token: your_admin_token_here" \
+  https://shh.example.com/api/admin/purge</pre>
+        </div>
+
+        <div class="bg-red-50 p-4 rounded border border-red-200">
+          <h4 class="font-semibold text-red-800 mb-2">Admin Delete Single Secret <span class="text-xs text-red-700">🔐 ADMIN ONLY</span></h4>
+          <p class="text-gray-600 mb-2"><strong>DELETE</strong> <code class="text-purple-600">/api/admin/secret/{id}</code></p>
+          <p class="text-xs text-red-700 mb-2">⚠️ Requires admin authentication header</p>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash Example:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl -X DELETE -H "X-Admin-Token: your_admin_token_here" \
+  https://shh.example.com/api/admin/secret/abc-123-def-456</pre>
         </div>
 
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
