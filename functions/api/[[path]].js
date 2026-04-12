@@ -418,7 +418,22 @@ export async function onRequest(context) {
 
       const parsed = JSON.parse(secretData);
 
-      // Delete immediately (one-time use)
+      // Store viewed secret in history (for admin audit)
+      const viewedKey = `viewed:${secretId}`;
+      const viewedData = {
+        ...parsed,
+        viewedAt: Date.now(),
+        viewedByIP: clientIP,
+      };
+      
+      // Keep viewed secrets for 7 days for audit
+      await env.SECRETS_KV.put(
+        viewedKey,
+        JSON.stringify(viewedData),
+        { expirationTtl: 7 * 24 * 3600 }
+      );
+
+      // Delete the active secret immediately (one-time use)
       await env.SECRETS_KV.delete(kvKey);
 
       // Send Discord notification
@@ -458,20 +473,20 @@ export async function onRequest(context) {
         });
       }
 
-      const list = await env.SECRETS_KV.list({ prefix: 'secret:' });
+      // Get active secrets
+      const activeList = await env.SECRETS_KV.list({ prefix: 'secret:' });
+      const activeSecrets = [];
       
-      // Get metadata for each secret
-      const secretsWithMetadata = [];
-      for (const key of list.keys) {
+      for (const key of activeList.keys) {
         const data = await env.SECRETS_KV.get(key.name);
         if (data) {
           try {
             const parsed = JSON.parse(data);
-            secretsWithMetadata.push({
+            activeSecrets.push({
               id: key.name.replace('secret:', ''),
               createdAt: parsed.createdAt,
               clientIP: parsed.clientIP,
-              viewed: parsed.viewed,
+              viewed: false,
               hasFiles: parsed.files && parsed.files.length > 0,
               fileCount: parsed.files?.length || 0,
             });
@@ -480,10 +495,43 @@ export async function onRequest(context) {
           }
         }
       }
+
+      // Get viewed secrets (last 7 days for audit)
+      const viewedList = await env.SECRETS_KV.list({ prefix: 'viewed:' });
+      const viewedSecrets = [];
+      
+      for (const key of viewedList.keys) {
+        const data = await env.SECRETS_KV.get(key.name);
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            viewedSecrets.push({
+              id: key.name.replace('viewed:', ''),
+              createdAt: parsed.createdAt,
+              viewedAt: parsed.viewedAt,
+              clientIP: parsed.clientIP,
+              viewedByIP: parsed.viewedByIP,
+              viewed: true,
+              hasFiles: parsed.files && parsed.files.length > 0,
+              fileCount: parsed.files?.length || 0,
+            });
+          } catch (err) {
+            console.error('Error parsing viewed secret metadata:', err);
+          }
+        }
+      }
+
+      // Combine and sort by most recent
+      const allSecrets = [...activeSecrets, ...viewedSecrets].sort((a, b) => {
+        const aTime = a.viewedAt || a.createdAt;
+        const bTime = b.viewedAt || b.createdAt;
+        return bTime - aTime;
+      });
       
       return new Response(JSON.stringify({
-        totalSecrets: list.keys.length,
-        secrets: secretsWithMetadata,
+        totalSecrets: activeList.keys.length,
+        totalViewed: viewedList.keys.length,
+        secrets: allSecrets,
       }), {
         headers: applySecurityHeaders({
           'Content-Type': 'application/json',

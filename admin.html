@@ -75,7 +75,9 @@
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold">🔐 Admin Portal - Shh</h1>
+          <h1 class="text-3xl font-bold">
+            <a href="/" class="hover:opacity-80 transition">🔐 Admin Portal - Shh</a>
+          </h1>
           <p class="text-purple-100 mt-1">Manage Shh Secure Secrets</p>
         </div>
         <div class="flex items-center gap-3">
@@ -216,6 +218,17 @@
     </div>
 
   </div>
+
+  <!-- Footer -->
+  <footer class="bg-gray-100 border-t border-gray-200 py-4 mt-8">
+    <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
+      <a href="/" class="hover:text-purple-600 font-medium">🏠 Home</a>
+      <span class="mx-2">•</span>
+      <a href="/admin" class="hover:text-purple-600">🔐 Admin</a>
+      <span class="mx-2">•</span>
+      <span>Made with ❤️ and Claude (Anthropic)</span>
+    </div>
+  </footer>
 
   <script>
     const API_URL = '/api';
@@ -385,32 +398,47 @@
         // Display secret list with metadata
         const secretList = document.getElementById('secretList');
         if (data.secrets.length === 0) {
-          secretList.innerHTML = '<p class="text-gray-500 text-sm">No active secrets</p>';
+          secretList.innerHTML = '<p class="text-gray-500 text-sm">No secrets (active or viewed)</p>';
         } else {
           secretList.innerHTML = data.secrets.map(s => {
             const createdDate = new Date(s.createdAt);
             const timeAgo = getTimeAgo(createdDate);
+            const viewedDate = s.viewedAt ? new Date(s.viewedAt) : null;
+            const viewedTimeAgo = viewedDate ? getTimeAgo(viewedDate) : null;
+            
+            // Different styling for viewed vs active
+            const borderColor = s.viewed ? 'border-gray-300' : 'border-green-300';
+            const bgColor = s.viewed ? 'bg-gray-50' : 'bg-green-50';
+            const statusBadge = s.viewed 
+              ? '<span class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">👁️ Viewed</span>'
+              : '<span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">🟢 Active</span>';
             
             return `
-              <div class="bg-gray-50 border border-gray-200 rounded p-4">
+              <div class="${bgColor} border ${borderColor} rounded p-4">
                 <div class="flex items-start justify-between">
                   <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2">
+                    <div class="flex items-center gap-2 mb-2 flex-wrap">
                       <code class="text-sm text-gray-700 font-mono">${s.id}</code>
+                      ${statusBadge}
                       ${s.hasFiles ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">📎 ' + s.fileCount + ' file(s)</span>' : ''}
                     </div>
                     <div class="text-xs text-gray-600 space-y-1">
                       <div>🕒 Created: ${createdDate.toLocaleString()} (${timeAgo})</div>
-                      <div>🌐 IP: ${s.clientIP || 'unknown'}</div>
-                      <div>👁️ Viewed: ${s.viewed ? 'Yes' : 'No'}</div>
+                      <div>🌐 Created by IP: ${s.clientIP || 'unknown'}</div>
+                      ${s.viewed ? `
+                        <div class="text-orange-600">👁️ Viewed: ${viewedDate.toLocaleString()} (${viewedTimeAgo})</div>
+                        <div class="text-orange-600">🌐 Viewed by IP: ${s.viewedByIP || 'unknown'}</div>
+                      ` : ''}
                     </div>
                   </div>
-                  <button 
-                    onclick="deleteSingleSecret('${s.id}')"
-                    class="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition"
-                    title="Delete this secret">
-                    🗑️ Delete
-                  </button>
+                  ${!s.viewed ? `
+                    <button 
+                      onclick="deleteSingleSecret('${s.id}')"
+                      class="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition"
+                      title="Delete this secret">
+                      🗑️ Delete
+                    </button>
+                  ` : '<span class="ml-4 text-xs text-gray-400 italic">Archived</span>'}
                 </div>
               </div>
             `;

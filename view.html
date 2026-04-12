@@ -87,7 +87,9 @@
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold">🤫 Shh - Secure Secrets</h1>
+          <h1 class="text-3xl font-bold">
+            <a href="/" class="hover:opacity-80 transition">🤫 Shh - Secure Secrets</a>
+          </h1>
           <p class="text-purple-100 mt-1">Share secrets securely with self-destructing links</p>
         </div>
         <div class="flex items-center gap-3">
@@ -206,6 +208,17 @@
     </div>
 
   </div>
+
+  <!-- Footer -->
+  <footer class="bg-gray-100 border-t border-gray-200 py-4 mt-8">
+    <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
+      <a href="/" class="hover:text-purple-600 font-medium">🏠 Home</a>
+      <span class="mx-2">•</span>
+      <a href="/admin" class="hover:text-purple-600">🔐 Admin</a>
+      <span class="mx-2">•</span>
+      <span>Made with ❤️ and Claude (Anthropic)</span>
+    </div>
+  </footer>
 
   <script>
     const API_URL = '/api';
@@ -363,13 +376,13 @@
     const contentState = document.getElementById('contentState');
     const errorState = document.getElementById('errorState');
 
-    // Check if secret exists
+    // Check secret
     async function checkSecret() {
       try {
         const res = await fetch(`${API_URL}/secret/${secretId}/metadata`);
         
         if (!res.ok) {
-          showError();
+          showError('Secret not found or already consumed.');
           return;
         }
 
@@ -396,7 +409,7 @@
 
       } catch (err) {
         console.error('Error checking secret:', err);
-        showError();
+        showError('Secret not found or already consumed.');
       }
     }
 
