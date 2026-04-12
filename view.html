@@ -248,7 +248,7 @@
       );
     }
     
-    // Decrypt data with AES-GCM
+    // Decrypt data with AES-GCM (returns text)
     async function decryptData(encryptedBase64, key) {
       const base64url = encryptedBase64.replace(/-/g, '+').replace(/_/g, '/');
       const padding = '='.repeat((4 - base64url.length % 4) % 4);
@@ -272,6 +272,31 @@
       
       const decoder = new TextDecoder();
       return decoder.decode(plaintext);
+    }
+    
+    // Decrypt binary data (for files) - returns ArrayBuffer
+    async function decryptBinary(encryptedBase64, key) {
+      const base64url = encryptedBase64.replace(/-/g, '+').replace(/_/g, '/');
+      const padding = '='.repeat((4 - base64url.length % 4) % 4);
+      const base64Padded = base64url + padding;
+      
+      const binary = atob(base64Padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      
+      // Extract IV (first 12 bytes) and ciphertext
+      const iv = bytes.slice(0, 12);
+      const ciphertext = bytes.slice(12);
+      
+      const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        ciphertext
+      );
+      
+      return plaintext; // Return ArrayBuffer directly
     }
     
     // ===================================
@@ -543,14 +568,16 @@
 
     // Download file using blob (avoids "too many arguments" error)
     window.downloadFile = function(fileIndex, filename, mimeType) {
-      const decryptedData = window.decryptedFiles[fileIndex];
-      if (!decryptedData) {
+      const decryptedArrayBuffer = window.decryptedFiles[fileIndex];
+      if (!decryptedArrayBuffer) {
         alert('File data not available');
         return;
       }
       
-      // Create blob from decrypted text data
-      const blob = new Blob([decryptedData], { type: mimeType || 'application/octet-stream' });
+      console.log('[DOWNLOAD] Creating blob for:', filename, 'size:', decryptedArrayBuffer.byteLength);
+      
+      // Create blob from ArrayBuffer
+      const blob = new Blob([decryptedArrayBuffer], { type: mimeType || 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
       
       // Create download link
@@ -561,8 +588,10 @@
       a.click();
       
       // Cleanup
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
     };
 
     // Initialize

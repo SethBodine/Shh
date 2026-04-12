@@ -21,7 +21,7 @@ import {
 // FEATURE FLAGS
 // ===================================
 const FEATURES = {
-  FILE_UPLOADS_ENABLED: true,
+  FILE_UPLOADS_ENABLED: false,
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   MAX_TEXT_SIZE: 1024, // 1KB plaintext (encrypted will be ~2KB)
   MAX_TTL_HOURS: 24,
@@ -228,7 +228,7 @@ export async function onRequest(context) {
       }
 
       // Validate encrypted data
-      const validation = validateEncryptedData(encryptedData, FEATURES.MAX_TEXT_SIZE * 2);
+      const validation = validateEncryptedData(encryptedData, FEATURES.MAX_TEXT_SIZE * 4);
       if (!validation.valid) {
         return new Response(JSON.stringify({ 
           error: validation.error 

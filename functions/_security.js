@@ -89,7 +89,7 @@ export function isValidTTL(ttl, maxHours = 24) {
 /**
  * Sanitize and validate encrypted data
  */
-export function validateEncryptedData(data, maxSize = 2048) {
+export function validateEncryptedData(data, maxSize = 4096) {
   if (typeof data !== 'string') {
     return { valid: false, error: 'Encrypted data must be a string' };
   }
@@ -160,11 +160,18 @@ export function validateFileMetadata(file, maxSize = 10 * 1024 * 1024) {
   }
   
   if (file.size > maxSize) {
-    return { valid: false, error: `File exceeds maximum size of ${maxSize} bytes` };
+    return { valid: false, error: `File exceeds maximum size of ${(maxSize / 1024 / 1024).toFixed(1)} MB` };
   }
   
   if (!file.data || typeof file.data !== 'string') {
     return { valid: false, error: 'Invalid file data' };
+  }
+  
+  // Encrypted file data will be ~133% of original size (base64) plus IV
+  // Allow encrypted data to be larger than original file size
+  const maxEncryptedSize = Math.ceil(maxSize * 1.4); // 40% overhead
+  if (file.data.length > maxEncryptedSize) {
+    return { valid: false, error: `Encrypted file data too large (${file.data.length} bytes)` };
   }
   
   return { valid: true };

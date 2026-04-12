@@ -464,6 +464,31 @@ console.log('Secret:', secret);</pre>
         .replace(/=/g, '');
     }
     
+    // Encrypt binary data (for files)
+    async function encryptBinary(arrayBuffer, key) {
+      const data = new Uint8Array(arrayBuffer);
+      
+      // Generate random IV (12 bytes for GCM)
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        data
+      );
+      
+      // Combine IV + ciphertext
+      const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+      combined.set(iv, 0);
+      combined.set(new Uint8Array(ciphertext), iv.length);
+      
+      // Return as base64url
+      return btoa(String.fromCharCode(...combined))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+    }
+    
     // ===================================
     // THEME & MODE MANAGEMENT
     // ===================================
@@ -626,14 +651,30 @@ console.log('Secret:', secret);</pre>
         const files = [];
         if (!document.getElementById('fileUploadSection').classList.contains('hidden')) {
           const fileInputFiles = Array.from(fileInput.files);
+          
           for (const file of fileInputFiles) {
-            const fileText = await fileToText(file);
-            const encryptedFile = await encryptData(fileText, encryptionKey);
+            console.log('[CREATE] Processing file:', file.name, 'Size:', file.size);
+            
+            // Read file as binary
+            const arrayBuffer = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsArrayBuffer(file);
+            });
+            
+            console.log('[CREATE] File read as ArrayBuffer, encrypting...');
+            
+            // Encrypt the binary data directly (not text)
+            const encryptedFileData = await encryptBinary(arrayBuffer, encryptionKey);
+            
+            console.log('[CREATE] File encrypted, size:', encryptedFileData.length);
+            
             files.push({
               name: file.name,
               type: file.type,
               size: file.size,
-              data: encryptedFile, // Encrypted!
+              data: encryptedFileData, // Already base64url encoded
             });
           }
         }
