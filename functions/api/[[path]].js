@@ -21,7 +21,7 @@ import {
 // FEATURE FLAGS
 // ===================================
 const FEATURES = {
-  FILE_UPLOADS_ENABLED: false,
+  FILE_UPLOADS_ENABLED: true,
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   MAX_TEXT_SIZE: 1024, // 1KB plaintext (encrypted will be ~2KB)
   MAX_TTL_HOURS: 24,
