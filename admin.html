@@ -6,242 +6,223 @@
   <title>Admin Portal - Shh</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {
-      --gradient-start: #667eea;
-      --gradient-end: #764ba2;
-    }
-    
-    .gradient-bg {
-      background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-      transition: background 0.3s ease;
-    }
-    
-    /* Dark mode styles */
-    body.dark-mode {
-      background-color: #1a1a2e;
-    }
-    
-    body.dark-mode .bg-white {
-      background-color: #16213e;
-      color: #e4e4e7;
-    }
-    
-    body.dark-mode .text-gray-700,
-    body.dark-mode .text-gray-800 {
-      color: #d1d5db;
-    }
-    
-    body.dark-mode .text-gray-600 {
-      color: #9ca3af;
-    }
-    
-    body.dark-mode .text-gray-500 {
-      color: #6b7280;
-    }
-    
-    body.dark-mode .border-gray-300,
-    body.dark-mode .border-gray-200 {
-      border-color: #374151;
-    }
-    
-    body.dark-mode input {
-      background-color: #0f3460;
-      color: #e4e4e7;
-      border-color: #374151;
-    }
-    
-    body.dark-mode .bg-gray-50 {
-      background-color: #0f3460;
-    }
-    
-    body.dark-mode code {
-      background-color: #0f3460;
-      color: #a5b4fc;
-    }
-    
-    .theme-btn {
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    
-    .theme-btn:hover {
-      transform: scale(1.1);
-    }
+    :root { --gradient-start: #667eea; --gradient-end: #764ba2; }
+    .gradient-bg { background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); transition: background 0.3s ease; }
+    body.dark-mode { background-color: #1a1a2e; }
+    body.dark-mode .bg-white { background-color: #16213e; color: #e4e4e7; }
+    body.dark-mode .text-gray-700, body.dark-mode .text-gray-800 { color: #d1d5db; }
+    body.dark-mode .text-gray-600 { color: #9ca3af; }
+    body.dark-mode .text-gray-500 { color: #6b7280; }
+    body.dark-mode .border-gray-300, body.dark-mode .border-gray-200 { border-color: #374151; }
+    body.dark-mode .bg-gray-50 { background-color: #0f3460; }
+    body.dark-mode .bg-gray-100 { background-color: #1a1a2e; }
+    body.dark-mode input { background-color: #0f3460; color: #e4e4e7; border-color: #374151; }
+    body.dark-mode code { background-color: #0f3460; color: #a5b4fc; }
+    .theme-btn { cursor: pointer; transition: transform 0.2s; }
+    .theme-btn:hover { transform: scale(1.1); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    .spinner-dark { border-color: rgba(100,100,100,0.3); border-top-color: #6b7280; }
+
+    /* Animated dots */
+    @keyframes blink { 0%,80%,100% { opacity:0 } 40% { opacity:1 } }
+    .dot { display:inline-block; animation: blink 1.4s infinite both; }
+    .dot:nth-child(2) { animation-delay:.2s; }
+    .dot:nth-child(3) { animation-delay:.4s; }
+
+    /* Modal */
+    #confirmModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:50; align-items:center; justify-content:center; }
+    #confirmModal.open { display:flex; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm mx-4 w-full">
+      <div class="text-2xl mb-2" id="modalIcon">⚠️</div>
+      <h3 class="text-lg font-bold text-gray-800 mb-2" id="modalTitle">Are you sure?</h3>
+      <p class="text-sm text-gray-600 mb-5" id="modalBody"></p>
+      <div class="flex gap-3">
+        <button id="modalConfirmBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition text-sm">Confirm</button>
+        <button id="modalCancelBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg transition text-sm">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Header -->
   <header class="gradient-bg text-white py-6 shadow-lg">
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold">
-            <a href="/" class="hover:opacity-80 transition">🔐 Admin Portal - Shh</a>
-          </h1>
+          <h1 class="text-3xl font-bold"><a href="/" class="hover:opacity-80 transition">🔐 Admin Portal - Shh</a></h1>
           <p class="text-purple-100 mt-1">Manage Shh Secure Secrets</p>
         </div>
         <div class="flex items-center gap-3">
-          <!-- Theme Selector -->
           <select id="themeSelect" class="px-3 py-2 rounded bg-white/20 text-white border border-white/30 text-sm cursor-pointer hover:bg-white/30 transition">
-            <option value="purple" class="bg-gray-800 text-white">Purple</option>
-            <option value="blue" class="bg-gray-800 text-white">Ocean Blue</option>
-            <option value="green" class="bg-gray-800 text-white">Forest Green</option>
-            <option value="orange" class="bg-gray-800 text-white">Sunset Orange</option>
-            <option value="pink" class="bg-gray-800 text-white">Sakura Pink</option>
-            <option value="teal" class="bg-gray-800 text-white">Teal Wave</option>
+            <option value="purple" class="bg-gray-800">Purple</option>
+            <option value="blue"   class="bg-gray-800">Ocean Blue</option>
+            <option value="green"  class="bg-gray-800">Forest Green</option>
+            <option value="orange" class="bg-gray-800">Sunset Orange</option>
+            <option value="pink"   class="bg-gray-800">Sakura Pink</option>
+            <option value="teal"   class="bg-gray-800">Teal Wave</option>
           </select>
-          <!-- Day/Night Toggle -->
-          <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">
-            🌙
-          </button>
+          <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">🌙</button>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Container -->
   <div class="container mx-auto px-4 py-8 max-w-4xl">
-    
-    <!-- Login Form -->
+
+    <!-- Login -->
     <div id="loginSection" class="bg-white rounded-lg shadow-md p-8 max-w-md mx-auto">
       <h2 class="text-2xl font-bold mb-4">Admin Authentication</h2>
       <p class="text-gray-600 mb-6">Enter your admin token to access the portal.</p>
-      
       <div class="mb-4">
         <label class="block text-gray-700 font-medium mb-2">Admin Token</label>
-        <input 
-          type="password" 
-          id="adminToken" 
+        <input type="password" id="adminToken"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-          placeholder="Enter admin token"
-        />
+          placeholder="Enter admin token">
       </div>
-
-      <button 
-        id="loginBtn" 
-        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200">
+      <button id="loginBtn"
+        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center gap-2">
         Login
       </button>
-
       <div id="loginError" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-sm"></div>
-
       <div class="mt-6 text-center">
-        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm">
-          ← Back to Shh
-        </a>
+        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm">← Back to Shh</a>
       </div>
     </div>
 
-    <!-- Admin Dashboard -->
-    <div id="dashboardSection" class="hidden">
-      
-      <!-- Stats Card -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4">Statistics</h2>
-        
-        <div class="grid md:grid-cols-3 gap-4">
-          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div class="text-3xl font-bold text-purple-600" id="totalSecrets">-</div>
-            <div class="text-gray-600">Active Secrets</div>
-          </div>
-          <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <div class="text-3xl font-bold text-orange-600" id="totalViewed">-</div>
-            <div class="text-gray-600">Viewed (Last 7 Days)</div>
-          </div>
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div class="text-3xl font-bold text-blue-600" id="lastUpdate">-</div>
-            <div class="text-gray-600">Last Updated</div>
-          </div>
-        </div>
+    <!-- Dashboard -->
+    <div id="dashboardSection" class="hidden space-y-6">
 
-        <button 
-          id="refreshBtn" 
-          class="mt-4 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition text-sm">
-          🔄 Refresh Stats
-        </button>
-      </div>
-
-      <!-- Actions Card -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4">Actions</h2>
-        
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-          <p class="text-yellow-800 text-sm">
-            <strong>Note:</strong> Purging will delete all active secrets immediately. 
-            This action cannot be undone. Secret content is never visible to admins for security.
-          </p>
-        </div>
-
-        <button 
-          id="purgeBtn" 
-          class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition duration-200">
-          🗑️ Purge All Secrets
-        </button>
-
-        <div id="purgeConfirm" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-red-800 font-semibold mb-3">⚠️ Are you absolutely sure?</p>
-          <p class="text-red-700 text-sm mb-4">
-            This will permanently delete ALL active secrets. This cannot be undone.
-          </p>
-          <div class="flex gap-2">
-            <button 
-              id="confirmPurgeBtn" 
-              class="flex-1 bg-red-700 hover:bg-red-800 text-white font-semibold py-2 rounded">
-              Yes, Purge Everything
-            </button>
-            <button 
-              id="cancelPurgeBtn" 
-              class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 rounded">
-              Cancel
-            </button>
-          </div>
-        </div>
-
-        <div id="purgeSuccess" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p class="text-green-800">✅ Successfully purged <span id="purgedCount">0</span> secrets.</p>
-        </div>
-      </div>
-
-      <!-- Secret List -->
+      <!-- Stats -->
       <div class="bg-white rounded-lg shadow-md p-6">
-
-        <!-- Toolbar -->
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 class="text-2xl font-bold">Secrets</h2>
-            <p class="text-gray-500 text-xs mt-0.5">Metadata only — encrypted content never visible to admins</p>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold">Statistics</h2>
+          <button id="refreshBtn"
+            class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition text-sm flex items-center gap-2">
+            🔄 Refresh
+          </button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold text-purple-600" id="statActive">-</div>
+            <div class="text-gray-600 text-sm mt-1">Active</div>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
-              <input type="checkbox" id="showArchived" checked class="w-4 h-4 accent-purple-600">
-              Show archived
-            </label>
-            <button id="selectAllBtn"
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold text-blue-600" id="statViewed">-</div>
+            <div class="text-gray-600 text-sm mt-1">Viewed</div>
+          </div>
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold text-gray-500" id="statExpired">-</div>
+            <div class="text-gray-600 text-sm mt-1">Expired</div>
+          </div>
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+            <div class="text-sm font-semibold text-green-600" id="statUpdated">-</div>
+            <div class="text-gray-600 text-sm mt-1">Last updated</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading indicator -->
+      <div id="loadingIndicator" class="hidden bg-white rounded-lg shadow-md p-8 text-center">
+        <div class="flex items-center justify-center gap-3 text-gray-500">
+          <div class="spinner spinner-dark"></div>
+          <span id="loadingText">Loading<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span>
+        </div>
+      </div>
+
+      <!-- Active Secrets -->
+      <div id="activeSection" class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-xl font-bold text-green-700">🟢 Active Secrets</h2>
+            <p class="text-gray-500 text-xs mt-0.5">Not yet consumed — still retrievable by recipients</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2" id="activeToolbar">
+            <button id="activeSelectAllBtn"
               class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 transition text-gray-700">
               Select all
             </button>
-            <button id="deleteSelectedBtn"
+            <button id="expireSelectedBtn"
+              class="hidden px-3 py-1.5 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded transition">
+              ⏱️ Expire selected (<span id="expireCount">0</span>)
+            </button>
+            <button id="deleteActiveSelectedBtn"
               class="hidden px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition">
-              &#128465;&#65039; Delete selected (<span id="selectedCount">0</span>)
+              🗑️ Delete selected (<span id="activeSelectedCount">0</span>)
+            </button>
+            <button id="deleteAllActiveBtn"
+              class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50 rounded transition">
+              🗑️ Delete all active
             </button>
           </div>
         </div>
-
-        <div id="secretList" class="space-y-2">
-          <!-- Populated by loadStats() -->
+        <div id="activeList" class="space-y-2">
+          <p class="text-gray-400 text-sm">Loading...</p>
         </div>
       </div>
 
-      <div class="mt-6 text-center">
-        <button id="logoutBtn" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
-          Logout
-        </button>
+      <!-- Viewed Archive -->
+      <div id="viewedSection" class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-xl font-bold text-blue-700">👁️ Viewed Archive</h2>
+            <p class="text-gray-500 text-xs mt-0.5">Consumed secrets — kept 7 days for audit</p>
+          </div>
+          <button id="deleteAllViewedBtn"
+            class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50 rounded transition">
+            🗑️ Clear viewed archive
+          </button>
+        </div>
+        <div id="viewedList" class="space-y-2">
+          <p class="text-gray-400 text-sm">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Expired Archive -->
+      <div id="expiredSection" class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-600">⏱️ Expired Archive</h2>
+            <p class="text-gray-500 text-xs mt-0.5">TTL lapsed before being viewed — kept 30 days</p>
+          </div>
+          <button id="deleteAllExpiredBtn"
+            class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50 rounded transition">
+            🗑️ Clear expired archive
+          </button>
+        </div>
+        <div id="expiredList" class="space-y-2">
+          <p class="text-gray-400 text-sm">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Global danger zone -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-red-700 mb-3">⚠️ Danger Zone</h2>
+        <div class="flex flex-wrap gap-3">
+          <button id="deleteAllArchivedBtn"
+            class="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded transition">
+            🗑️ Delete all archived (viewed + expired)
+          </button>
+          <button id="deleteEverythingBtn"
+            class="px-4 py-2 text-sm bg-red-700 hover:bg-red-800 text-white rounded transition">
+            💥 Delete everything (active + archived)
+          </button>
+        </div>
+      </div>
+
+      <div class="text-center">
+        <button id="logoutBtn" class="text-purple-600 hover:text-purple-800 text-sm font-medium">Logout</button>
       </div>
     </div>
-
   </div>
 
-  <!-- Footer -->
   <footer class="bg-gray-100 border-t border-gray-200 py-4 mt-8">
     <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
       <a href="/" class="hover:text-purple-600 font-medium">🏠 Home</a>
@@ -253,199 +234,172 @@
   </footer>
 
   <script>
+    'use strict';
     const API_URL = '/api';
     let adminToken = null;
 
-    const loginSection = document.getElementById('loginSection');
+    // ── Theme & mode ──────────────────────────────────────────────────────────
+    const themes = {
+      purple:{start:'#667eea',end:'#764ba2'}, blue:{start:'#4facfe',end:'#00f2fe'},
+      green:{start:'#56ab2f',end:'#a8e063'},  orange:{start:'#f46b45',end:'#eea849'},
+      pink:{start:'#ff6a88',end:'#ff99ac'},   teal:{start:'#2ebf91',end:'#8360c3'},
+    };
+    function applyTheme(n) {
+      const t = themes[n];
+      document.documentElement.style.setProperty('--gradient-start', t.start);
+      document.documentElement.style.setProperty('--gradient-end',   t.end);
+      localStorage.setItem('theme', n);
+    }
+    function applyMode(m) {
+      document.body.classList.toggle('dark-mode', m === 'dark');
+      document.getElementById('modeToggle').textContent = m === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('mode', m);
+    }
+    (function initTheme() {
+      const t = localStorage.getItem('theme') || 'purple';
+      document.getElementById('themeSelect').value = t;
+      applyTheme(t);
+      const m = localStorage.getItem('mode');
+      if (m) applyMode(m);
+      else { const h = new Date().getHours(); applyMode(h >= 18 || h < 6 ? 'dark' : 'light'); }
+    })();
+    document.getElementById('themeSelect').addEventListener('change', e => applyTheme(e.target.value));
+    document.getElementById('modeToggle').addEventListener('click', () => {
+      applyMode(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
+    });
+
+    // ── Confirmation modal ────────────────────────────────────────────────────
+    function showConfirm(icon, title, body, confirmLabel, confirmClass) {
+      return new Promise(resolve => {
+        const modal = document.getElementById('confirmModal');
+        document.getElementById('modalIcon').textContent  = icon;
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalBody').textContent  = body;
+        const btn = document.getElementById('modalConfirmBtn');
+        btn.textContent = confirmLabel;
+        btn.className   = 'flex-1 ' + confirmClass + ' text-white font-semibold py-2 rounded-lg transition text-sm';
+        modal.classList.add('open');
+        function cleanup(result) {
+          modal.classList.remove('open');
+          btn.removeEventListener('click', onConfirm);
+          document.getElementById('modalCancelBtn').removeEventListener('click', onCancel);
+          resolve(result);
+        }
+        function onConfirm() { cleanup(true);  }
+        function onCancel()  { cleanup(false); }
+        btn.addEventListener('click', onConfirm);
+        document.getElementById('modalCancelBtn').addEventListener('click', onCancel);
+      });
+    }
+
+    // ── Spinner helpers ───────────────────────────────────────────────────────
+    function setBtnLoading(btn, loadingText) {
+      btn._origHTML    = btn.innerHTML;
+      btn._origDisabled = btn.disabled;
+      btn.disabled  = true;
+      btn.innerHTML = '<span class="spinner"></span>' + loadingText;
+    }
+    function resetBtn(btn) {
+      btn.innerHTML = btn._origHTML;
+      btn.disabled  = btn._origDisabled;
+    }
+
+    function setLoading(visible, text) {
+      const el = document.getElementById('loadingIndicator');
+      document.getElementById('loadingText').childNodes[0].textContent = text || 'Loading';
+      el.classList.toggle('hidden', !visible);
+    }
+
+    // ── Session ───────────────────────────────────────────────────────────────
+    const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+    let sessionTimeoutId = null;
+    const loginSection     = document.getElementById('loginSection');
     const dashboardSection = document.getElementById('dashboardSection');
 
-    // ===================================
-    // THEME & MODE MANAGEMENT
-    // ===================================
-    
-    const themes = {
-      purple: { start: '#667eea', end: '#764ba2' },
-      blue: { start: '#4facfe', end: '#00f2fe' },
-      green: { start: '#56ab2f', end: '#a8e063' },
-      orange: { start: '#f46b45', end: '#eea849' },
-      pink: { start: '#ff6a88', end: '#ff99ac' },
-      teal: { start: '#2ebf91', end: '#8360c3' }
-    };
-    
-    function initializeTheme() {
-      const savedTheme = localStorage.getItem('theme') || 'purple';
-      document.getElementById('themeSelect').value = savedTheme;
-      applyTheme(savedTheme);
-      
-      const savedMode = localStorage.getItem('mode');
-      if (savedMode) {
-        applyMode(savedMode);
-      } else {
-        applyTimeBasedMode();
-      }
-    }
-    
-    function applyTheme(themeName) {
-      const theme = themes[themeName];
-      document.documentElement.style.setProperty('--gradient-start', theme.start);
-      document.documentElement.style.setProperty('--gradient-end', theme.end);
-      localStorage.setItem('theme', themeName);
-    }
-    
-    function applyMode(mode) {
-      const body = document.body;
-      const toggle = document.getElementById('modeToggle');
-      
-      if (mode === 'dark') {
-        body.classList.add('dark-mode');
-        toggle.textContent = '☀️';
-      } else {
-        body.classList.remove('dark-mode');
-        toggle.textContent = '🌙';
-      }
-      localStorage.setItem('mode', mode);
-    }
-    
-    function applyTimeBasedMode() {
-      const hour = new Date().getHours();
-      const mode = (hour >= 18 || hour < 6) ? 'dark' : 'light';
-      applyMode(mode);
-    }
-    
-    document.getElementById('themeSelect').addEventListener('change', (e) => {
-      applyTheme(e.target.value);
-    });
-    
-    document.getElementById('modeToggle').addEventListener('click', () => {
-      const isDark = document.body.classList.contains('dark-mode');
-      applyMode(isDark ? 'light' : 'dark');
-    });
-    
-    initializeTheme();
-
-    // ===================================
-    // SESSION PERSISTENCE & TIMEOUT
-    // ===================================
-    
-    // Session timeout in milliseconds (default: 1 hour)
-    // Can be configured via environment variable: ADMIN_SESSION_TIMEOUT_MINUTES
-    const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour default
-    let sessionTimeoutId = null;
-    
-    // Check for saved session on load
-    const savedToken = sessionStorage.getItem('adminToken');
-    const sessionExpiry = sessionStorage.getItem('adminSessionExpiry');
-    
-    if (savedToken && sessionExpiry) {
-      const now = Date.now();
-      if (now < parseInt(sessionExpiry)) {
-        adminToken = savedToken;
-        verifyAndLoadDashboard();
-        startSessionTimeout();
-      } else {
-        // Session expired
-        sessionStorage.removeItem('adminToken');
-        sessionStorage.removeItem('adminSessionExpiry');
-      }
-    }
-    
     function startSessionTimeout() {
-      // Clear any existing timeout
-      if (sessionTimeoutId) {
-        clearTimeout(sessionTimeoutId);
-      }
-      
-      // Set new timeout
+      clearTimeout(sessionTimeoutId);
       sessionTimeoutId = setTimeout(() => {
-        alert('Admin session expired due to inactivity. Please log in again.');
+        alert('Admin session expired. Please log in again.');
         document.getElementById('logoutBtn').click();
       }, SESSION_TIMEOUT_MS);
     }
-    
     function resetSessionTimeout() {
-      // Update expiry time
-      const expiry = Date.now() + SESSION_TIMEOUT_MS;
-      sessionStorage.setItem('adminSessionExpiry', expiry.toString());
+      sessionStorage.setItem('adminSessionExpiry', (Date.now() + SESSION_TIMEOUT_MS).toString());
       startSessionTimeout();
     }
-    
-    // Reset timeout on user activity
-    ['mousedown', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-      document.addEventListener(event, () => {
-        if (adminToken) {
-          resetSessionTimeout();
-        }
-      }, true);
-    });
-    
-    async function verifyAndLoadDashboard() {
-      try {
-        const res = await fetch(`${API_URL}/admin/stats`, {
-          headers: { 'X-Admin-Token': adminToken }
-        });
+    ['mousedown','keypress','scroll','touchstart'].forEach(ev =>
+      document.addEventListener(ev, () => { if (adminToken) resetSessionTimeout(); }, true)
+    );
 
+    // Restore session
+    (function restoreSession() {
+      const token  = sessionStorage.getItem('adminToken');
+      const expiry = sessionStorage.getItem('adminSessionExpiry');
+      if (token && expiry && Date.now() < parseInt(expiry)) {
+        adminToken = token;
+        verifyAndLoadDashboard();
+        startSessionTimeout();
+      } else {
+        sessionStorage.removeItem('adminToken');
+        sessionStorage.removeItem('adminSessionExpiry');
+      }
+    })();
+
+    async function verifyAndLoadDashboard() {
+      setLoading(true, 'Verifying session');
+      try {
+        const res = await fetch(API_URL + '/admin/stats', { headers: { 'X-Admin-Token': adminToken } });
         if (res.ok) {
           loginSection.classList.add('hidden');
           dashboardSection.classList.remove('hidden');
-          loadStats();
+          await loadStats();
           resetSessionTimeout();
         } else {
-          // Token invalid, clear it
           sessionStorage.removeItem('adminToken');
           sessionStorage.removeItem('adminSessionExpiry');
           adminToken = null;
         }
-      } catch (err) {
-        console.error('Session verification failed:', err);
-      }
+      } catch (e) { console.error('Session verify failed:', e); }
+      finally { setLoading(false); }
     }
 
-    // ===================================
-    // ADMIN PORTAL LOGIC
-    // ===================================
-
-    // Login
+    // ── Login ─────────────────────────────────────────────────────────────────
     document.getElementById('loginBtn').addEventListener('click', async () => {
       const token = document.getElementById('adminToken').value.trim();
-      
-      if (!token) {
-        showLoginError('Please enter an admin token');
-        return;
-      }
-
+      if (!token) { showLoginError('Please enter an admin token'); return; }
       adminToken = token;
-      
-      // Try to fetch stats to verify token
+      const btn = document.getElementById('loginBtn');
+      setBtnLoading(btn, 'Authenticating');
+      document.getElementById('loginError').classList.add('hidden');
       try {
-        const res = await fetch(`${API_URL}/admin/stats`, {
-          headers: { 'X-Admin-Token': adminToken }
-        });
-
+        const res = await fetch(API_URL + '/admin/stats', { headers: { 'X-Admin-Token': adminToken } });
         if (res.ok) {
-          // Save token to session with expiry
-          const expiry = Date.now() + SESSION_TIMEOUT_MS;
           sessionStorage.setItem('adminToken', adminToken);
-          sessionStorage.setItem('adminSessionExpiry', expiry.toString());
-          
+          sessionStorage.setItem('adminSessionExpiry', (Date.now() + SESSION_TIMEOUT_MS).toString());
           loginSection.classList.add('hidden');
           dashboardSection.classList.remove('hidden');
-          loadStats();
+          await loadStats();
           startSessionTimeout();
         } else {
           showLoginError('Invalid admin token');
           adminToken = null;
         }
-      } catch (err) {
-        showLoginError('Failed to connect to server');
-      }
+      } catch (e) { showLoginError('Failed to connect to server'); adminToken = null; }
+      finally { resetBtn(btn); }
     });
+    document.getElementById('adminToken').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('loginBtn').click();
+    });
+    function showLoginError(msg) {
+      const el = document.getElementById('loginError');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
 
-    // Logout
+    // ── Logout ────────────────────────────────────────────────────────────────
     document.getElementById('logoutBtn').addEventListener('click', () => {
       adminToken = null;
-      if (sessionTimeoutId) {
-        clearTimeout(sessionTimeoutId);
-      }
+      clearTimeout(sessionTimeoutId);
       sessionStorage.removeItem('adminToken');
       sessionStorage.removeItem('adminSessionExpiry');
       loginSection.classList.remove('hidden');
@@ -453,307 +407,306 @@
       document.getElementById('adminToken').value = '';
     });
 
-    // ─── Selection state ──────────────────────────────────────────────────────
-    const selectedIds = new Set();
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function getTimeAgo(date) {
+      const s = Math.floor((Date.now() - date) / 1000);
+      if (s < 60)   return s + 's ago';
+      if (s < 3600) return Math.floor(s/60) + 'm ago';
+      if (s < 86400) return Math.floor(s/3600) + 'h ago';
+      return Math.floor(s/86400) + 'd ago';
+    }
+    function fmtDate(ts) { return ts ? new Date(ts).toLocaleString() : '—'; }
 
-    function updateSelectionUI() {
-      const count = selectedIds.size;
-      const btn   = document.getElementById('deleteSelectedBtn');
-      const span  = document.getElementById('selectedCount');
-      span.textContent = count;
-      count > 0 ? btn.classList.remove('hidden') : btn.classList.add('hidden');
-      const allCheckboxes = document.querySelectorAll('.secret-checkbox:not(:disabled)');
-      const allChecked    = allCheckboxes.length > 0 && [...allCheckboxes].every(function(cb) { return cb.checked; });
-      document.getElementById('selectAllBtn').textContent = allChecked ? 'Deselect all' : 'Select all';
+    // ── Selection state (active only) ─────────────────────────────────────────
+    const selectedActiveIds = new Set();
+
+    function updateActiveSelectionUI() {
+      const count = selectedActiveIds.size;
+      document.getElementById('activeSelectedCount').textContent = count;
+      document.getElementById('expireCount').textContent         = count;
+      document.getElementById('deleteActiveSelectedBtn').classList.toggle('hidden', count === 0);
+      document.getElementById('expireSelectedBtn').classList.toggle('hidden', count === 0);
+
+      const allCbs    = document.querySelectorAll('#activeList .secret-checkbox');
+      const allChecked = allCbs.length > 0 && [...allCbs].every(cb => cb.checked);
+      document.getElementById('activeSelectAllBtn').textContent = allChecked ? 'Deselect all' : 'Select all';
     }
 
-    // ─── Build secret card via DOM ────────────────────────────────────────────
-    function buildSecretCard(s) {
-      const wrapper     = document.createElement('div');
-      wrapper.dataset.id     = s.id;
-      wrapper.dataset.viewed = s.viewed ? '1' : '0';
-      wrapper.style.cssText  = 'display:flex;align-items:flex-start;gap:8px;';
+    // ── Card builders ─────────────────────────────────────────────────────────
+    function badgesHTML(s) {
+      const views = (s.maxViews && s.maxViews > 1)
+        ? '<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">&#128065; '+(s.viewCount||0)+'/'+s.maxViews+'</span>' : '';
+      const pp = s.passphraseProtected
+        ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">&#128273; Passphrase</span>' : '';
+      const files = s.hasFiles
+        ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">&#128206; '+s.fileCount+' file(s)</span>' : '';
+      return views + pp + files;
+    }
 
-      // Checkbox (disabled + dimmed for archived)
-      const checkbox = document.createElement('input');
-      checkbox.type      = 'checkbox';
-      checkbox.className = 'secret-checkbox w-4 h-4 accent-purple-600 mt-3.5 shrink-0'
-        + (s.viewed ? ' opacity-30 cursor-not-allowed' : ' cursor-pointer');
-      checkbox.disabled   = s.viewed;
-      checkbox.dataset.id = s.id;
-      checkbox.addEventListener('change', function() {
-        if (this.checked) selectedIds.add(s.id);
-        else              selectedIds.delete(s.id);
-        updateSelectionUI();
-      });
-
-      const div         = document.createElement('div');
-      div.style.flex    = '1';
-      const createdDate = new Date(s.createdAt);
-      const timeAgo     = getTimeAgo(createdDate);
-      const expiresDate = s.expiresAt ? new Date(s.expiresAt) : null;
-
-      div.className = (s.viewed ? 'bg-gray-50 border-gray-300' : 'bg-green-50 border-green-300')
-        + ' border rounded p-4';
-
-      const statusBadge = s.viewed
-        ? '<span class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">&#128065;&#65039; Archived</span>'
-        : '<span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">&#128994; Active</span>';
-      const viewsBadge = (s.maxViews && s.maxViews > 1)
-        ? '<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">&#128065;&#65039; '
-          + (s.viewCount || 0) + '/' + s.maxViews + ' views</span>'
-        : '';
-      const ppBadge = s.passphraseProtected
-        ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">&#128273; Passphrase</span>'
-        : '';
-      const filesBadge = s.hasFiles
-        ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">&#128206; '
-          + s.fileCount + ' file(s)</span>'
-        : '';
-
-      let historyHTML = '';
+    function viewerLogHTML(s) {
       if (s.viewerLog && s.viewerLog.length > 0) {
-        const rows = s.viewerLog.map(function(v) {
-          return '<div class="text-orange-600 pl-2">View ' + (v.viewNumber || '?') + ': '
-            + new Date(v.viewedAt).toLocaleString() + ' &mdash; '
-            + escapeHtml(v.viewedByIP || 'unknown') + '</div>';
-        }).join('');
-        historyHTML = '<div class="mt-1 pt-1 border-t border-gray-200">'
-          + '<div class="font-medium text-gray-500 mb-0.5">&#128065;&#65039; View history:</div>'
-          + rows + '</div>';
-      } else if (s.viewed && s.viewedAt) {
-        const vd = new Date(s.viewedAt);
-        historyHTML = '<div class="text-orange-600">&#128065;&#65039; Last viewed: '
-          + vd.toLocaleString() + ' (' + getTimeAgo(vd) + ')</div>'
-          + '<div class="text-orange-600">&#127760; Viewed by IP: '
-          + escapeHtml(s.viewedByIP || 'unknown') + '</div>';
+        const rows = s.viewerLog.map(v =>
+          '<div class="pl-2 text-orange-600">View '+(v.viewNumber||'?')+': '+fmtDate(v.viewedAt)+' &mdash; '+escapeHtml(v.viewedByIP||'unknown')+'</div>'
+        ).join('');
+        return '<div class="mt-1 pt-1 border-t border-gray-200"><div class="font-medium text-gray-500 mb-0.5">&#128065; View history:</div>'+rows+'</div>';
       }
+      if (s.viewedAt) return '<div class="text-orange-600">&#128065; Viewed: '+fmtDate(s.viewedAt)+'</div><div class="text-orange-600">&#127760; By: '+escapeHtml(s.viewedByIP||'unknown')+'</div>';
+      if (s.expiredAt) return '<div class="text-gray-500">&#9201; Expired: '+fmtDate(s.expiredAt)+(s.adminExpired?' (admin-forced)':'')+'</div>';
+      return '';
+    }
 
-      const actionHTML = !s.viewed
-        ? '<button data-delete-id="' + escapeHtml(s.id) + '" '
-          + 'class="delete-single-btn ml-2 px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition shrink-0" '
-          + 'title="Delete">&#128465;&#65039;</button>'
-        : '<span class="ml-2 text-xs text-gray-400 italic shrink-0">Archived</span>';
+    function buildActiveCard(s) {
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'display:flex;align-items:flex-start;gap:8px;';
+      wrapper.dataset.id = s.id;
 
-      div.innerHTML =
-        '<div class="flex items-start">'
-        + '<div class="flex-1 min-w-0">'
-        + '<div class="flex items-center gap-2 mb-2 flex-wrap">'
-        + '<code class="text-sm text-gray-700 font-mono break-all">' + escapeHtml(s.id) + '</code>'
-        + statusBadge + viewsBadge + ppBadge + filesBadge
-        + '</div>'
-        + '<div class="text-xs text-gray-600 space-y-1">'
-        + '<div>&#128336; Created: ' + createdDate.toLocaleString() + ' (' + timeAgo + ')</div>'
-        + (expiresDate && !s.viewed
-            ? '<div>&#9201;&#65039; Expires: ' + expiresDate.toLocaleString() + '</div>' : '')
-        + '<div>&#127760; Created by IP: ' + escapeHtml(s.clientIP || 'unknown') + '</div>'
-        + historyHTML
-        + '</div></div>'
-        + actionHTML
-        + '</div>';
-
-      div.querySelector('[data-delete-id]')?.addEventListener('click', function() {
-        deleteSingleSecret(this.dataset.deleteId);
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'secret-checkbox w-4 h-4 accent-purple-600 mt-4 shrink-0 cursor-pointer';
+      cb.dataset.id = s.id;
+      cb.addEventListener('change', function() {
+        if (this.checked) selectedActiveIds.add(s.id); else selectedActiveIds.delete(s.id);
+        updateActiveSelectionUI();
       });
 
-      wrapper.appendChild(checkbox);
-      wrapper.appendChild(div);
+      const card = document.createElement('div');
+      card.style.flex = '1';
+      card.className  = 'bg-green-50 border border-green-300 rounded p-4';
+      card.innerHTML  =
+        '<div class="flex items-start justify-between gap-2">'
+        + '<div class="min-w-0 flex-1">'
+        + '<div class="flex flex-wrap items-center gap-1.5 mb-2">'
+        + '<code class="text-sm text-gray-700 font-mono break-all">'+escapeHtml(s.id)+'</code>'
+        + '<span class="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">&#128994; Active</span>'
+        + badgesHTML(s) + '</div>'
+        + '<div class="text-xs text-gray-600 space-y-0.5">'
+        + '<div>&#128336; Created: '+fmtDate(s.createdAt)+' ('+getTimeAgo(s.createdAt)+')</div>'
+        + '<div>&#9201; Expires: '+fmtDate(s.expiresAt)+'</div>'
+        + '<div>&#127760; Created by: '+escapeHtml(s.clientIP||'unknown')+'</div>'
+        + viewerLogHTML(s) + '</div></div>'
+        + '<div class="flex gap-1 shrink-0">'
+        + '<button data-expire="'+escapeHtml(s.id)+'" class="expire-btn px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded transition" title="Force expire">&#9201;</button>'
+        + '<button data-delete="'+escapeHtml(s.id)+'" class="delete-btn px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition" title="Delete">&#128465;</button>'
+        + '</div></div>';
+
+      card.querySelector('[data-expire]').addEventListener('click', async function() {
+        const id = this.dataset.expire;
+        const ok = await showConfirm('⏱️','Force expire this secret?','This will move it to the expired archive immediately. The recipient will no longer be able to view it.','Yes, expire it','bg-orange-500 hover:bg-orange-600');
+        if (!ok) return;
+        setBtnLoading(this, '');
+        await adminAction('POST', '/admin/secret/'+id+'/expire', null, 'Force-expiring');
+        loadStats();
+      });
+      card.querySelector('[data-delete]').addEventListener('click', async function() {
+        const id = this.dataset.delete;
+        const ok = await showConfirm('🗑️','Delete this active secret?','This permanently removes it. The recipient will not be able to view it and no archive copy is kept.','Delete','bg-red-600 hover:bg-red-700');
+        if (!ok) return;
+        await adminAction('DELETE', '/admin/secret/'+id, null, 'Deleting');
+        loadStats();
+      });
+
+      wrapper.appendChild(cb);
+      wrapper.appendChild(card);
       return wrapper;
     }
 
-    function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    function buildArchivedCard(s, statusLabel, statusClass, statusIcon) {
+      const card = document.createElement('div');
+      card.className = 'bg-gray-50 border border-gray-200 rounded p-4';
+      card.innerHTML =
+        '<div class="flex items-start justify-between gap-2">'
+        + '<div class="min-w-0 flex-1">'
+        + '<div class="flex flex-wrap items-center gap-1.5 mb-2">'
+        + '<code class="text-sm text-gray-700 font-mono break-all">'+escapeHtml(s.id)+'</code>'
+        + '<span class="text-xs '+statusClass+' px-2 py-0.5 rounded">'+statusIcon+' '+statusLabel+'</span>'
+        + badgesHTML(s) + '</div>'
+        + '<div class="text-xs text-gray-600 space-y-0.5">'
+        + '<div>&#128336; Created: '+fmtDate(s.createdAt)+' ('+getTimeAgo(s.createdAt)+')</div>'
+        + '<div>&#127760; Created by: '+escapeHtml(s.clientIP||'unknown')+'</div>'
+        + viewerLogHTML(s) + '</div></div>'
+        + '<button data-delete="'+escapeHtml(s.id)+'" class="delete-btn px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition shrink-0" title="Delete from archive">&#128465;</button>'
+        + '</div>';
+
+      card.querySelector('[data-delete]').addEventListener('click', async function() {
+        const id = this.dataset.delete;
+        const ok = await showConfirm('🗑️','Remove from archive?','This permanently deletes the audit record.','Delete','bg-red-600 hover:bg-red-700');
+        if (!ok) return;
+        await adminAction('DELETE', '/admin/secret/'+id, null, 'Deleting');
+        loadStats();
+      });
+      return card;
     }
 
-    // ─── Cached secrets for re-rendering on filter change ────────────────────
-    let cachedSecrets = [];
-
-    function renderSecretList() {
-      const showArchived = document.getElementById('showArchived').checked;
-      const secretList   = document.getElementById('secretList');
-      secretList.innerHTML = '';
-      selectedIds.clear();
-      updateSelectionUI();
-
-      const filtered = cachedSecrets.filter(function(s) {
-        return showArchived || !s.viewed;
-      });
-
-      if (filtered.length === 0) {
-        secretList.innerHTML = '<p class="text-gray-500 text-sm">'
-          + (cachedSecrets.length === 0 ? 'No secrets yet.' : 'No secrets match the current filter.')
-          + '</p>';
+    function renderList(container, items, emptyMsg, buildFn) {
+      container.innerHTML = '';
+      if (!items || items.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-sm italic">'+emptyMsg+'</p>';
         return;
       }
-      filtered.forEach(function(s) { secretList.appendChild(buildSecretCard(s)); });
+      items.forEach(s => container.appendChild(buildFn(s)));
     }
 
-    // Load stats
-    async function loadStats() {
+    // ── Generic admin fetch with loading state ────────────────────────────────
+    async function adminAction(method, endpoint, btn, loadingText) {
+      if (btn) setBtnLoading(btn, loadingText || '');
+      setLoading(true, loadingText || 'Working');
       try {
-        const res = await fetch(`${API_URL}/admin/stats`, {
-          headers: { 'X-Admin-Token': adminToken }
+        const res = await fetch(API_URL + endpoint, {
+          method, headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' }
         });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Request failed'); }
+        return await res.json();
+      } finally {
+        setLoading(false);
+        if (btn) resetBtn(btn);
+      }
+    }
 
+    // ── Load stats ────────────────────────────────────────────────────────────
+    async function loadStats() {
+      setLoading(true, 'Loading');
+      try {
+        const res = await fetch(API_URL + '/admin/stats', { headers: { 'X-Admin-Token': adminToken } });
         if (!res.ok) throw new Error('Unauthorized');
-
         const data = await res.json();
 
-        document.getElementById('totalSecrets').textContent = data.totalSecrets;
-        document.getElementById('totalViewed').textContent  = data.totalViewed;
-        document.getElementById('lastUpdate').textContent   = new Date().toLocaleTimeString();
+        document.getElementById('statActive').textContent  = data.totalSecrets;
+        document.getElementById('statViewed').textContent  = data.totalViewed;
+        document.getElementById('statExpired').textContent = data.totalExpired;
+        document.getElementById('statUpdated').textContent = new Date().toLocaleTimeString();
 
-        cachedSecrets = data.secrets || [];
-        renderSecretList();
+        selectedActiveIds.clear();
+        updateActiveSelectionUI();
 
+        renderList(
+          document.getElementById('activeList'), data.activeSecrets,
+          'No active secrets.',
+          buildActiveCard
+        );
+        renderList(
+          document.getElementById('viewedList'), data.viewedSecrets,
+          'No viewed secrets in the audit window.',
+          s => buildArchivedCard(s, 'Viewed', 'bg-blue-100 text-blue-800', '👁️')
+        );
+        renderList(
+          document.getElementById('expiredList'), data.expiredSecrets,
+          'No expired secrets in the archive.',
+          s => buildArchivedCard(s, s.adminExpired ? 'Force-expired' : 'Expired', 'bg-gray-200 text-gray-700', '⏱️')
+        );
       } catch (err) {
-        console.error('Failed to load stats:', err);
-        alert('Session expired or invalid token');
+        console.error('loadStats failed:', err);
+        alert('Session expired or lost connection. Please log in again.');
         document.getElementById('logoutBtn').click();
+      } finally {
+        setLoading(false);
       }
     }
 
-    // Helper: Time ago
-    function getTimeAgo(date) {
-      const seconds = Math.floor((new Date() - date) / 1000);
-      
-      if (seconds < 60) return `${seconds}s ago`;
-      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-      return `${Math.floor(seconds / 86400)}d ago`;
-    }
-
-    // Delete single secret
-    async function deleteSingleSecret(secretId) {
-      if (!confirm('Delete secret ' + secretId + '?\n\nThis cannot be undone.')) return;
-      try {
-        const res = await fetch(API_URL + '/admin/secret/' + secretId, {
-          method: 'DELETE',
-          headers: { 'X-Admin-Token': adminToken }
-        });
-        if (!res.ok) throw new Error('Delete failed');
-        selectedIds.delete(secretId);
-        loadStats();
-      } catch (err) {
-        console.error('Failed to delete secret:', err);
-        alert('Failed to delete secret');
-      }
-    }
-
-    // ─── Toolbar: show/hide archived ─────────────────────────────────────────
-    document.getElementById('showArchived').addEventListener('change', renderSecretList);
-
-    // ─── Toolbar: select all / deselect all ──────────────────────────────────
-    document.getElementById('selectAllBtn').addEventListener('click', function() {
-      const checkboxes = document.querySelectorAll('.secret-checkbox:not(:disabled)');
-      const allChecked = [...checkboxes].every(function(cb) { return cb.checked; });
-      checkboxes.forEach(function(cb) {
-        cb.checked = !allChecked;
-        if (!allChecked) selectedIds.add(cb.dataset.id);
-        else             selectedIds.delete(cb.dataset.id);
-      });
-      updateSelectionUI();
+    // ── Toolbar: active section ───────────────────────────────────────────────
+    document.getElementById('refreshBtn').addEventListener('click', async function() {
+      setBtnLoading(this, 'Refreshing');
+      await loadStats();
+      resetBtn(this);
     });
 
-    // ─── Toolbar: delete selected ─────────────────────────────────────────────
-    document.getElementById('deleteSelectedBtn').addEventListener('click', async function() {
-      const ids = [...selectedIds];
-      if (ids.length === 0) return;
-      if (!confirm('Delete ' + ids.length + ' selected secret(s)?\n\nThis cannot be undone.')) return;
+    document.getElementById('activeSelectAllBtn').addEventListener('click', function() {
+      const cbs = document.querySelectorAll('#activeList .secret-checkbox');
+      const all = [...cbs].every(cb => cb.checked);
+      cbs.forEach(cb => {
+        cb.checked = !all;
+        if (!all) selectedActiveIds.add(cb.dataset.id); else selectedActiveIds.delete(cb.dataset.id);
+      });
+      updateActiveSelectionUI();
+    });
 
-      const btn = this;
-      btn.disabled = true;
-      btn.textContent = 'Deleting...';
-
+    document.getElementById('expireSelectedBtn').addEventListener('click', async function() {
+      const ids = [...selectedActiveIds];
+      if (!ids.length) return;
+      const ok = await showConfirm('⏱️','Force expire '+ids.length+' secret(s)?','They will be moved to the expired archive. Recipients will no longer be able to view them.','Yes, expire all','bg-orange-500 hover:bg-orange-600');
+      if (!ok) return;
+      setBtnLoading(this, 'Expiring');
       let failed = 0;
-      await Promise.all(ids.map(async function(id) {
-        try {
-          const res = await fetch(API_URL + '/admin/secret/' + id, {
-            method: 'DELETE',
-            headers: { 'X-Admin-Token': adminToken }
-          });
-          if (!res.ok) failed++;
-          else         selectedIds.delete(id);
-        } catch { failed++; }
+      await Promise.all(ids.map(async id => {
+        try { await adminAction('POST', '/admin/secret/'+id+'/expire'); }
+        catch { failed++; }
       }));
-
-      btn.disabled = false;
-      if (failed > 0) alert(failed + ' deletion(s) failed.');
+      resetBtn(this);
+      if (failed) alert(failed + ' expiration(s) failed.');
       loadStats();
     });
 
-    // Refresh stats
-    document.getElementById('refreshBtn').addEventListener('click', loadStats);
-
-    // Purge flow
-    document.getElementById('purgeBtn').addEventListener('click', () => {
-      document.getElementById('purgeConfirm').classList.remove('hidden');
-      document.getElementById('purgeSuccess').classList.add('hidden');
+    document.getElementById('deleteActiveSelectedBtn').addEventListener('click', async function() {
+      const ids = [...selectedActiveIds];
+      if (!ids.length) return;
+      const ok = await showConfirm('🗑️','Delete '+ids.length+' active secret(s)?','This permanently removes them. No archive copy is kept.','Delete '+ids.length+' secret(s)','bg-red-600 hover:bg-red-700');
+      if (!ok) return;
+      setBtnLoading(this, 'Deleting');
+      let failed = 0;
+      await Promise.all(ids.map(async id => {
+        try { await adminAction('DELETE', '/admin/secret/'+id); }
+        catch { failed++; }
+      }));
+      resetBtn(this);
+      if (failed) alert(failed + ' deletion(s) failed.');
+      loadStats();
     });
 
-    document.getElementById('cancelPurgeBtn').addEventListener('click', () => {
-      document.getElementById('purgeConfirm').classList.add('hidden');
+    document.getElementById('deleteAllActiveBtn').addEventListener('click', async function() {
+      const count = parseInt(document.getElementById('statActive').textContent) || 0;
+      if (!count) { alert('No active secrets to delete.'); return; }
+      const ok = await showConfirm('🗑️','Delete all '+count+' active secret(s)?','This permanently removes all active secrets. Recipients will not be able to view them and no archive copy is kept.','Delete all active','bg-red-600 hover:bg-red-700');
+      if (!ok) return;
+      await adminAction('POST', '/admin/purge', this, 'Deleting all active');
+      loadStats();
     });
 
-    document.getElementById('confirmPurgeBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('confirmPurgeBtn');
-      btn.disabled = true;
-      btn.textContent = 'Purging...';
+    // ── Toolbar: archived sections ────────────────────────────────────────────
+    document.getElementById('deleteAllViewedBtn').addEventListener('click', async function() {
+      const count = parseInt(document.getElementById('statViewed').textContent) || 0;
+      if (!count) { alert('No viewed records to clear.'); return; }
+      const ok = await showConfirm('🗑️','Clear viewed archive?','This deletes '+count+' audit record(s). This cannot be undone.','Clear archive','bg-red-600 hover:bg-red-700');
+      if (!ok) return;
+      await adminAction('POST', '/admin/purge-viewed', this, 'Clearing');
+      loadStats();
+    });
 
-      console.log('[ADMIN] Attempting purge with token:', adminToken ? 'SET' : 'NOT SET');
+    document.getElementById('deleteAllExpiredBtn').addEventListener('click', async function() {
+      const count = parseInt(document.getElementById('statExpired').textContent) || 0;
+      if (!count) { alert('No expired records to clear.'); return; }
+      const ok = await showConfirm('🗑️','Clear expired archive?','This deletes '+count+' expired record(s). This cannot be undone.','Clear archive','bg-red-600 hover:bg-red-700');
+      if (!ok) return;
+      await adminAction('POST', '/admin/purge-expired', this, 'Clearing');
+      loadStats();
+    });
 
+    document.getElementById('deleteAllArchivedBtn').addEventListener('click', async function() {
+      const v = parseInt(document.getElementById('statViewed').textContent)  || 0;
+      const e = parseInt(document.getElementById('statExpired').textContent) || 0;
+      if (!v && !e) { alert('No archived records to delete.'); return; }
+      const ok = await showConfirm('🗑️','Delete all archived records?','This removes '+(v+e)+' record(s) from both the viewed and expired archives. This cannot be undone.','Delete all archived','bg-orange-600 hover:bg-orange-700');
+      if (!ok) return;
+      await adminAction('POST', '/admin/purge-archived', this, 'Clearing archives');
+      loadStats();
+    });
+
+    document.getElementById('deleteEverythingBtn').addEventListener('click', async function() {
+      const a = parseInt(document.getElementById('statActive').textContent)  || 0;
+      const v = parseInt(document.getElementById('statViewed').textContent)  || 0;
+      const e = parseInt(document.getElementById('statExpired').textContent) || 0;
+      const total = a + v + e;
+      const ok = await showConfirm('💥','Delete absolutely everything?','This will permanently destroy all '+total+' records — active secrets, viewed archive, and expired archive. There is no recovery.','Yes, delete everything','bg-red-700 hover:bg-red-800');
+      if (!ok) return;
+      setBtnLoading(this, 'Deleting everything');
       try {
-        const res = await fetch(`${API_URL}/admin/purge`, {
-          method: 'POST',
-          headers: { 
-            'X-Admin-Token': adminToken,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        console.log('[ADMIN] Purge response status:', res.status);
-        
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('[ADMIN] Purge failed:', errorText);
-          throw new Error(`Purge failed with status ${res.status}: ${errorText}`);
-        }
-
-        const data = await res.json();
-        console.log('[ADMIN] Purge successful:', data);
-        
-        document.getElementById('purgeConfirm').classList.add('hidden');
-        document.getElementById('purgeSuccess').classList.remove('hidden');
-        document.getElementById('purgedCount').textContent = data.purged;
-
-        // Refresh stats
-        setTimeout(() => {
-          loadStats();
-          document.getElementById('purgeSuccess').classList.add('hidden');
-        }, 3000);
-
-      } catch (err) {
-        console.error('[ADMIN] Purge error:', err);
-        alert('Failed to purge secrets: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Yes, Purge Everything';
-      }
-    });
-
-    function showLoginError(message) {
-      const errorDiv = document.getElementById('loginError');
-      errorDiv.textContent = message;
-      errorDiv.classList.remove('hidden');
-    }
-
-    // Allow Enter key to login
-    document.getElementById('adminToken').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        document.getElementById('loginBtn').click();
-      }
+        await Promise.all([
+          adminAction('POST', '/admin/purge'),
+          adminAction('POST', '/admin/purge-archived'),
+        ]);
+      } catch (e) { console.error(e); }
+      resetBtn(this);
+      loadStats();
     });
   </script>
 </body>
