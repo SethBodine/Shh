@@ -191,29 +191,68 @@
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
           <h4 class="font-semibold text-gray-800 mb-2">Create Secret <span class="text-xs text-green-600">🌐 PUBLIC</span></h4>
           <p class="text-gray-600 mb-2"><strong>POST</strong> <code class="text-purple-600">/api/secret</code></p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">{
-  "encryptedData": "base64url_aes256gcm_ciphertext",
-  "ttl": 12,
-  "maxViews": 1,
-  "passphraseProtected": false,
-  "files": []
-}</pre>
-          <p class="text-xs text-orange-600 mt-2">⚠️ Client-side encryption required — server never accepts or stores plaintext.</p>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash example — encrypt then create:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">#!/bin/bash
+# 1. Generate a random 256-bit key
+KEY_B64=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')
+
+# 2. Generate a random 12-byte IV
+IV_HEX=$(openssl rand -hex 12)
+
+# 3. Encrypt with AES-256-GCM
+SECRET="My secret message"
+ENCRYPTED=$(printf '%s' "$SECRET" \
+  | openssl enc -aes-256-gcm -nosalt -nopad \
+    -K $(echo "$KEY_B64" | tr '-_' '+/' | base64 -d | xxd -p -c 256) \
+    -iv "$IV_HEX" 2>/dev/null | base64 | tr '+/' '-_' | tr -d '=\n')
+
+# 4. Combine IV + ciphertext (matches browser format)
+IV_B64=$(echo "$IV_HEX" | xxd -r -p | base64 | tr '+/' '-_' | tr -d '=\n')
+PAYLOAD="${IV_B64}${ENCRYPTED}"
+
+# 5. POST to API
+RESULT=$(curl -s -X POST https://your-site.pages.dev/api/secret \
+  -H "Content-Type: application/json" \
+  -d "{\"encryptedData\":\"$PAYLOAD\",\"ttl\":12,\"maxViews\":1}")
+
+ID=$(echo "$RESULT" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+echo "Share: https://your-site.pages.dev/view/$ID#$KEY_B64"</pre>
+          <p class="text-xs text-orange-600 mt-2">⚠️ Browser-based creation is strongly recommended — the Web Crypto API handles GCM authentication tags correctly. The bash example above is for automation/testing only.</p>
         </div>
 
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
           <h4 class="font-semibold text-gray-800 mb-2">Check Secret Metadata <span class="text-xs text-green-600">🌐 PUBLIC</span></h4>
           <p class="text-gray-600 mb-2"><strong>GET</strong> <code class="text-purple-600">/api/secret/{id}/metadata</code></p>
           <p class="text-gray-600 mb-1">Returns: <code>exists, viewed, hasFiles, fileCount, viewsRemaining, maxViews, expiresAt, passphraseProtected</code></p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl https://your-site.pages.dev/api/secret/{id}/metadata</pre>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash example:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl -s https://your-site.pages.dev/api/secret/{id}/metadata | jq .</pre>
         </div>
 
         <div class="bg-gray-50 p-4 rounded border border-gray-200">
           <h4 class="font-semibold text-gray-800 mb-2">View & Decrypt Secret <span class="text-xs text-green-600">🌐 PUBLIC</span></h4>
           <p class="text-gray-600 mb-2"><strong>POST</strong> <code class="text-purple-600">/api/secret/{id}/view</code></p>
           <p class="text-gray-600 mb-1">Returns encrypted ciphertext. Decrements view count; deletes on last view.</p>
-          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">curl -X POST https://your-site.pages.dev/api/secret/{id}/view</pre>
-          <p class="text-xs text-orange-600 mt-2">⚠️ Each call counts as one view — call only when ready.</p>
+          <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash example — fetch and decrypt:</strong></p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">#!/bin/bash
+# Full URL: https://your-site.pages.dev/view/{id}#{key}
+URL="https://your-site.pages.dev/view/abc-123-def#xY9zK2mP..."
+ID=$(echo "$URL" | sed 's|.*/view/||' | cut -d'#' -f1)
+KEY_B64=$(echo "$URL" | cut -d'#' -f2)
+
+# Fetch encrypted payload (⚠️ this consumes a view)
+RESPONSE=$(curl -s -X POST "https://your-site.pages.dev/api/secret/$ID/view")
+PAYLOAD=$(echo "$RESPONSE" | grep -o '"encryptedData":"[^"]*"' | cut -d'"' -f4)
+
+# Split IV (first 16 base64url chars = 12 bytes) from ciphertext
+IV_B64=$(echo "$PAYLOAD" | head -c 16)
+CT_B64=$(echo "$PAYLOAD" | tail -c +17)
+
+IV_HEX=$(echo "$IV_B64" | tr '-_' '+/' | base64 -d | xxd -p -c 256)
+KEY_HEX=$(echo "$KEY_B64" | tr '-_' '+/' | base64 -d | xxd -p -c 256)
+
+echo "$CT_B64" | tr '-_' '+/' | base64 -d \
+  | openssl enc -d -aes-256-gcm -nosalt -nopad -K "$KEY_HEX" -iv "$IV_HEX"</pre>
+          <p class="text-xs text-orange-600 mt-2">⚠️ Each POST to /view counts as one view and cannot be undone.</p>
         </div>
 
         <!-- File upload section — status loaded from /api/health -->
@@ -261,6 +300,39 @@
             <li>Secrets destroyed on last view (or at TTL expiry)</li>
             <li>Admin token comparison is timing-safe (no length-leak side-channel)</li>
           </ul>
+        </div>
+
+        <div class="bg-green-50 p-4 rounded border border-green-200">
+          <h4 class="font-semibold text-green-800 mb-2">💻 Client-Side Decryption (JavaScript)</h4>
+          <p class="text-xs text-green-700 mb-2">How to decrypt a secret programmatically in the browser or Node.js:</p>
+          <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">// Full URL: https://your-site.pages.dev/view/{id}#{key}
+const url       = window.location.href;
+const secretId  = url.split('/view/')[1].split('#')[0];
+const keyB64url = url.split('#')[1];
+
+// Import AES-256-GCM key from URL fragment
+const keyBytes = Uint8Array.from(
+  atob(keyB64url.replace(/-/g, '+').replace(/_/g, '/')),
+  c => c.charCodeAt(0)
+);
+const key = await crypto.subtle.importKey(
+  'raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']
+);
+
+// Fetch encrypted payload (⚠️ consumes a view)
+const res   = await fetch(`/api/secret/${secretId}/view`, { method: 'POST' });
+const { encryptedData } = await res.json();
+
+// Decode base64url → bytes, split IV (12 bytes) + ciphertext
+const b64    = encryptedData.replace(/-/g, '+').replace(/_/g, '/');
+const bytes  = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+const iv     = bytes.slice(0, 12);
+const cipher = bytes.slice(12);
+
+// Decrypt
+const plain  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
+const secret = new TextDecoder().decode(plain);
+console.log('Secret:', secret);</pre>
         </div>
 
       </div>

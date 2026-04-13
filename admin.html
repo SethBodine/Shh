@@ -435,6 +435,83 @@
       document.getElementById('adminToken').value = '';
     });
 
+    // ─── Build secret card via DOM (avoids nested template literal parse errors) ──
+    function buildSecretCard(s) {
+      const div         = document.createElement('div');
+      const createdDate = new Date(s.createdAt);
+      const timeAgo     = getTimeAgo(createdDate);
+      const expiresDate = s.expiresAt ? new Date(s.expiresAt) : null;
+
+      div.className = (s.viewed ? 'bg-gray-50 border-gray-300' : 'bg-green-50 border-green-300')
+        + ' border rounded p-4';
+
+      const statusBadge = s.viewed
+        ? '<span class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">&#128065;&#65039; Viewed</span>'
+        : '<span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">&#128994; Active</span>';
+      const viewsBadge = (s.maxViews && s.maxViews > 1)
+        ? '<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">&#128065;&#65039; '
+          + (s.viewCount || 0) + '/' + s.maxViews + ' views</span>'
+        : '';
+      const ppBadge = s.passphraseProtected
+        ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">&#128273; Passphrase</span>'
+        : '';
+      const filesBadge = s.hasFiles
+        ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">&#128206; '
+          + s.fileCount + ' file(s)</span>'
+        : '';
+
+      // View history
+      let historyHTML = '';
+      if (s.viewerLog && s.viewerLog.length > 0) {
+        const rows = s.viewerLog.map(function(v) {
+          return '<div class="text-orange-600 pl-2">View ' + (v.viewNumber || '?') + ': '
+            + new Date(v.viewedAt).toLocaleString() + ' &mdash; '
+            + escapeHtml(v.viewedByIP || 'unknown') + '</div>';
+        }).join('');
+        historyHTML = '<div class="mt-1 pt-1 border-t border-gray-200">'
+          + '<div class="font-medium text-gray-500 mb-0.5">&#128065;&#65039; View history:</div>'
+          + rows + '</div>';
+      } else if (s.viewed && s.viewedAt) {
+        const vd = new Date(s.viewedAt);
+        historyHTML = '<div class="text-orange-600">&#128065;&#65039; Last viewed: '
+          + vd.toLocaleString() + ' (' + getTimeAgo(vd) + ')</div>'
+          + '<div class="text-orange-600">&#127760; Viewed by IP: '
+          + escapeHtml(s.viewedByIP || 'unknown') + '</div>';
+      }
+
+      const deleteBtn = !s.viewed
+        ? '<button onclick="deleteSingleSecret('' + escapeHtml(s.id) + '')" '
+          + 'class="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition shrink-0" '
+          + 'title="Delete this secret">&#128465;&#65039; Delete</button>'
+        : '<span class="ml-4 text-xs text-gray-400 italic shrink-0">Archived</span>';
+
+      div.innerHTML =
+        '<div class="flex items-start justify-between">'
+        + '<div class="flex-1 min-w-0">'
+        + '<div class="flex items-center gap-2 mb-2 flex-wrap">'
+        + '<code class="text-sm text-gray-700 font-mono break-all">' + escapeHtml(s.id) + '</code>'
+        + statusBadge + viewsBadge + ppBadge + filesBadge
+        + '</div>'
+        + '<div class="text-xs text-gray-600 space-y-1">'
+        + '<div>&#128336; Created: ' + createdDate.toLocaleString() + ' (' + timeAgo + ')</div>'
+        + (expiresDate && !s.viewed
+            ? '<div>&#9201;&#65039; Expires: ' + expiresDate.toLocaleString() + '</div>' : '')
+        + '<div>&#127760; Created by IP: ' + escapeHtml(s.clientIP || 'unknown') + '</div>'
+        + historyHTML
+        + '</div>'
+        + '</div>'
+        + deleteBtn
+        + '</div>';
+
+      return div;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     // Load stats
     async function loadStats() {
       try {
@@ -442,80 +519,20 @@
           headers: { 'X-Admin-Token': adminToken }
         });
 
-        if (!res.ok) {
-          throw new Error('Unauthorized');
-        }
+        if (!res.ok) throw new Error('Unauthorized');
 
         const data = await res.json();
-        
+
         document.getElementById('totalSecrets').textContent = data.totalSecrets;
         document.getElementById('totalViewed').textContent  = data.totalViewed;
         document.getElementById('lastUpdate').textContent   = new Date().toLocaleTimeString();
 
-        // Display secret list with metadata
         const secretList = document.getElementById('secretList');
+        secretList.innerHTML = '';
         if (data.secrets.length === 0) {
           secretList.innerHTML = '<p class="text-gray-500 text-sm">No secrets (active or viewed)</p>';
         } else {
-          secretList.innerHTML = data.secrets.map(s => {
-            const createdDate   = new Date(s.createdAt);
-            const timeAgo       = getTimeAgo(createdDate);
-            const viewedDate    = s.viewedAt ? new Date(s.viewedAt) : null;
-            const viewedTimeAgo = viewedDate ? getTimeAgo(viewedDate) : null;
-            const expiresDate   = s.expiresAt ? new Date(s.expiresAt) : null;
-
-            const borderColor = s.viewed ? 'border-gray-300' : 'border-green-300';
-            const bgColor     = s.viewed ? 'bg-gray-50'      : 'bg-green-50';
-            const statusBadge = s.viewed
-              ? '<span class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">👁️ Viewed</span>'
-              : '<span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">🟢 Active</span>';
-            const viewsBadge  = (s.maxViews && s.maxViews > 1)
-              ? `<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">👁️ ${s.viewCount || 0}/${s.maxViews} views</span>`
-              : '';
-            const ppBadge     = s.passphraseProtected
-              ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">🔑 Passphrase</span>'
-              : '';
-
-            return `
-              <div class="${bgColor} border ${borderColor} rounded p-4">
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2 flex-wrap">
-                      <code class="text-sm text-gray-700 font-mono">${s.id}</code>
-                      ${statusBadge}
-                      ${viewsBadge}
-                      ${ppBadge}
-                      ${s.hasFiles ? \`<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">📎 \${s.fileCount} file(s)</span>\` : ''}
-                    </div>
-                    <div class="text-xs text-gray-600 space-y-1">
-                      <div>🕒 Created: ${createdDate.toLocaleString()} (${timeAgo})</div>
-                      ${expiresDate && !s.viewed ? \`<div>⏱️ Expires: \${expiresDate.toLocaleString()}</div>\` : ''}
-                      <div>🌐 Created by IP: ${s.clientIP || 'unknown'}</div>
-                      ${s.viewerLog && s.viewerLog.length > 0 ? `
-                        <div class="mt-1 pt-1 border-t border-gray-200">
-                          <div class="font-medium text-gray-500 mb-0.5">👁️ View history:</div>
-                          ${s.viewerLog.map(v =>
-                            `<div class="text-orange-600 pl-2">View ${v.viewNumber}: ${new Date(v.viewedAt).toLocaleString()} — ${v.viewedByIP || "unknown"}</div>`
-                          ).join("")}
-                        </div>
-                      ` : s.viewed ? `
-                        <div class="text-orange-600">👁️ Last viewed: ${viewedDate ? viewedDate.toLocaleString() : "unknown"} (${viewedTimeAgo || "?"})</div>
-                        <div class="text-orange-600">🌐 Viewed by IP: ${s.viewedByIP || "unknown"}</div>
-                      ` : ''}
-                    </div>
-                  </div>
-                  ${!s.viewed ? \`
-                    <button
-                      onclick="deleteSingleSecret('\${s.id}')"
-                      class="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition"
-                      title="Delete this secret">
-                      🗑️ Delete
-                    </button>
-                  \` : '<span class="ml-4 text-xs text-gray-400 italic">Archived</span>'}
-                </div>
-              </div>
-            `;
-          }).join('');
+          data.secrets.forEach(function(s) { secretList.appendChild(buildSecretCard(s)); });
         }
 
       } catch (err) {

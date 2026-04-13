@@ -539,6 +539,11 @@
       return (bytes / 1048576).toFixed(1) + ' MB';
     }
 
+    // Enter key on passphrase field triggers view
+    document.getElementById('passphraseEntry').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('viewBtn').click();
+    });
+
     // Init
     checkSecret();
   </script>
