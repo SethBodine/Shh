@@ -1,0 +1,628 @@
+openapi: 3.1.0
+
+info:
+  title: Shh Secrets API
+  version: 3.1.0
+  description: |
+    Zero-knowledge, end-to-end encrypted one-time secret sharing service.
+
+    **Architecture**: All encryption and decryption happens in the browser using the
+    Web Crypto API (AES-256-GCM). The server stores only ciphertext and never sees
+    plaintext or encryption keys. Keys travel exclusively in URL fragments (`#key`),
+    which browsers never include in HTTP requests.
+
+    **Secret lifecycle**:
+    1. Creator encrypts client-side → POSTs ciphertext to `/api/secret`
+    2. Creator shares `https://host/view/{id}#{key}`
+    3. Recipient visits the URL → browser fetches ciphertext → decrypts locally
+    4. On last view (or admin force-expire), secret moves to archive
+    5. Secrets past their TTL are archived by the scheduled cron job
+
+  contact:
+    name: Shh Secrets
+  license:
+    name: MIT
+
+servers:
+  - url: https://shh.insecure.co.nz/api
+    description: Production
+
+tags:
+  - name: public
+    description: Unauthenticated endpoints
+  - name: admin
+    description: Requires X-Admin-Token header
+
+paths:
+
+  /health:
+    get:
+      tags: [public]
+      summary: Health check and feature flags
+      description: Returns service status, enabled features, and rate limit configuration.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /secret:
+    post:
+      tags: [public]
+      summary: Create a secret
+      description: |
+        Store an encrypted secret. The caller is responsible for encrypting
+        the data client-side before sending. The server never receives plaintext.
+
+        **Rate limit**: 10 requests per IP per hour (configurable).
+      operationId: createSecret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSecretRequest'
+            examples:
+              text_only:
+                summary: Text secret, 1 view, 12 hours
+                value:
+                  encryptedData: "dGVzdA"
+                  ttl: 12
+                  maxViews: 1
+                  passphraseProtected: false
+                  files: []
+              with_files:
+                summary: Text + file attachment
+                value:
+                  encryptedData: "dGVzdA"
+                  ttl: 6
+                  maxViews: 3
+                  passphraseProtected: true
+                  files:
+                    - name: document.pdf
+                      type: application/pdf
+                      size: 102400
+                      data: "ZW5jcnlwdGVkZmlsZWRhdGE"
+      responses:
+        '201':
+          description: Secret created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSecretResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Feature disabled (e.g. file uploads turned off)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /secret/{id}/metadata:
+    get:
+      tags: [public]
+      summary: Check secret metadata
+      description: |
+        Returns metadata about a secret without consuming a view.
+        Use this to verify a secret exists and inform the recipient before
+        they commit to viewing it.
+
+        Returns 404 if the secret has expired (and archives it on the spot).
+      operationId: getSecretMetadata
+      parameters:
+        - $ref: '#/components/parameters/SecretId'
+      responses:
+        '200':
+          description: Secret metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretMetadata'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /secret/{id}/view:
+    post:
+      tags: [public]
+      summary: View a secret (consumes one view)
+      description: |
+        Retrieves the encrypted ciphertext. Each call decrements the view
+        counter. On the final allowed view, the secret is moved to the
+        viewed audit archive and the active key is deleted.
+
+        ⚠️ This call is **irreversible** — do not call it until the recipient
+        is ready to save or copy the decrypted content.
+
+        **Rate limit**: 50 requests per IP per hour (configurable).
+      operationId: viewSecret
+      parameters:
+        - $ref: '#/components/parameters/SecretId'
+      responses:
+        '200':
+          description: Encrypted secret payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewSecretResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /admin/stats:
+    get:
+      tags: [admin]
+      summary: List all secrets (metadata only)
+      description: |
+        Returns active, viewed, and expired secrets grouped separately.
+        Content (ciphertext) is never included — only metadata.
+      operationId: getAdminStats
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          description: Secret inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminStatsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/secret/{id}/expire:
+    post:
+      tags: [admin]
+      summary: Force-expire an active secret
+      description: |
+        Immediately moves an active secret to the expired archive.
+        The recipient will no longer be able to view it.
+        The archive entry is kept for 30 days.
+      operationId: forceExpireSecret
+      security:
+        - AdminToken: []
+      parameters:
+        - $ref: '#/components/parameters/SecretId'
+      responses:
+        '200':
+          description: Secret archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expired:
+                    type: string
+                    format: uuid
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/secret/{id}:
+    delete:
+      tags: [admin]
+      summary: Permanently delete a secret
+      description: |
+        Deletes a secret from whichever state it is in (active, viewed archive,
+        or expired archive). No recovery is possible.
+      operationId: deleteSecret
+      security:
+        - AdminToken: []
+      parameters:
+        - $ref: '#/components/parameters/SecretId'
+      responses:
+        '200':
+          description: Secret deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: string
+                    format: uuid
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/purge:
+    post:
+      tags: [admin]
+      summary: Delete all active secrets
+      description: |
+        Permanently deletes all secrets in active state. Viewed and expired
+        archives are not affected. Rate limited to 5 admin actions per hour.
+      operationId: purgeActiveSecrets
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          description: Number of secrets purged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /admin/purge-viewed:
+    post:
+      tags: [admin]
+      summary: Clear the viewed archive
+      description: Permanently deletes all records in the viewed audit archive.
+      operationId: purgeViewedArchive
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeResponse'
+          description: Purge result
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/purge-expired:
+    post:
+      tags: [admin]
+      summary: Clear the expired archive
+      description: Permanently deletes all records in the expired archive.
+      operationId: purgeExpiredArchive
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeResponse'
+          description: Purge result
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/purge-archived:
+    post:
+      tags: [admin]
+      summary: Clear all archives (viewed + expired)
+      description: Permanently deletes all records in both the viewed and expired archives.
+      operationId: purgeAllArchives
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeResponse'
+          description: Purge result
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+
+  securitySchemes:
+    AdminToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+      description: Admin token set via the ADMIN_TOKEN environment variable
+
+  parameters:
+    SecretId:
+      name: id
+      in: path
+      required: true
+      description: UUID of the secret
+      schema:
+        type: string
+        format: uuid
+        example: 123e4567-e89b-12d3-a456-426614174000
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Secret not found, already consumed, or expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid admin token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Too many requests
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until the rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error description
+        retryAfter:
+          type: integer
+          description: Seconds to wait before retrying (rate limit responses only)
+
+    CreateSecretRequest:
+      type: object
+      required: [encryptedData]
+      properties:
+        encryptedData:
+          type: string
+          description: |
+            Base64url-encoded AES-256-GCM ciphertext. Format: base64url(IV[12 bytes] + ciphertext + GCM tag).
+            Must be encrypted client-side before sending.
+          example: "dGVzdA"
+        ttl:
+          type: integer
+          minimum: 1
+          maximum: 24
+          default: 24
+          description: Time-to-live in hours before the secret expires
+        maxViews:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+          description: Number of times the secret may be viewed before being destroyed
+        passphraseProtected:
+          type: boolean
+          default: false
+          description: |
+            Indicates the encryption key is wrapped with a PBKDF2-derived AES-KW key.
+            The passphrase is never sent to the server; this flag is metadata only.
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/EncryptedFile'
+          description: Encrypted file attachments (requires FILE_UPLOADS_ENABLED)
+
+    EncryptedFile:
+      type: object
+      required: [name, type, size, data]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          description: Original filename
+        type:
+          type: string
+          description: MIME type of the original file
+        size:
+          type: integer
+          description: Size of the original (pre-encryption) file in bytes
+        data:
+          type: string
+          description: Base64url-encoded AES-256-GCM encrypted binary. Same format as encryptedData.
+
+    CreateSecretResponse:
+      type: object
+      required: [id, expiresIn, maxViews]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Secret ID — use to build the shareable link
+        expiresIn:
+          type: integer
+          description: TTL in hours
+        maxViews:
+          type: integer
+          description: Number of views allowed
+
+    SecretMetadata:
+      type: object
+      properties:
+        exists:
+          type: boolean
+        viewed:
+          type: boolean
+          description: True if all allowed views have been consumed
+        hasFiles:
+          type: boolean
+        fileCount:
+          type: integer
+        viewsRemaining:
+          type: integer
+        maxViews:
+          type: integer
+        expiresAt:
+          type: integer
+          description: Unix timestamp (ms) when the secret will expire
+        passphraseProtected:
+          type: boolean
+
+    ViewSecretResponse:
+      type: object
+      required: [encryptedData]
+      properties:
+        encryptedData:
+          type: string
+          description: Base64url-encoded ciphertext — decrypt client-side using the key from the URL fragment
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/EncryptedFile'
+        viewsRemaining:
+          type: integer
+          description: Views left after this request
+        isLastView:
+          type: boolean
+          description: True if this was the final allowed view (secret now destroyed)
+
+    AdminStatsResponse:
+      type: object
+      properties:
+        totalSecrets:
+          type: integer
+        totalViewed:
+          type: integer
+        totalExpired:
+          type: integer
+        activeSecrets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActiveSecretSummary'
+        viewedSecrets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViewedSecretSummary'
+        expiredSecrets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpiredSecretSummary'
+
+    BaseSecretSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: integer
+          description: Unix timestamp (ms)
+        clientIP:
+          type: string
+        hasFiles:
+          type: boolean
+        fileCount:
+          type: integer
+        passphraseProtected:
+          type: boolean
+        viewerLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViewLogEntry'
+
+    ViewLogEntry:
+      type: object
+      properties:
+        viewNumber:
+          type: integer
+        viewedAt:
+          type: integer
+          description: Unix timestamp (ms)
+        viewedByIP:
+          type: string
+
+    ActiveSecretSummary:
+      allOf:
+        - $ref: '#/components/schemas/BaseSecretSummary'
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [active]
+            expiresAt:
+              type: integer
+            viewCount:
+              type: integer
+            maxViews:
+              type: integer
+            viewsRemaining:
+              type: integer
+
+    ViewedSecretSummary:
+      allOf:
+        - $ref: '#/components/schemas/BaseSecretSummary'
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [viewed]
+            viewedAt:
+              type: integer
+            viewedByIP:
+              type: string
+            viewCount:
+              type: integer
+            maxViews:
+              type: integer
+
+    ExpiredSecretSummary:
+      allOf:
+        - $ref: '#/components/schemas/BaseSecretSummary'
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [expired]
+            expiredAt:
+              type: integer
+            adminExpired:
+              type: boolean
+              description: True if expired by admin action rather than TTL
+
+    PurgeResponse:
+      type: object
+      required: [purged]
+      properties:
+        purged:
+          type: integer
+          description: Number of records deleted
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        features:
+          type: object
+          properties:
+            fileUploads:    { type: boolean }
+            maxFileSize:    { type: integer }
+            maxTextSize:    { type: integer }
+            maxTTL:         { type: integer }
+            maxViews:       { type: integer }
+            e2ee:           { type: boolean }
+            zeroKnowledge:  { type: boolean }
+            passphraseProtection: { type: boolean }
+        config:
+          type: object
+          properties:
+            kvBound:           { type: boolean }
+            adminTokenSet:     { type: boolean }
+            discordWebhookSet: { type: boolean }
+        rateLimits:
+          type: object
+          properties:
+            CREATE_SECRET_PER_IP_PER_HOUR: { type: integer }
+            VIEW_SECRET_PER_IP_PER_HOUR:   { type: integer }
+            ADMIN_ACTION_PER_HOUR:         { type: integer }
