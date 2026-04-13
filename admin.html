@@ -204,13 +204,31 @@
 
       <!-- Secret List -->
       <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-bold mb-4">Active Secrets</h2>
-        <p class="text-gray-600 text-sm mb-4">
-          Metadata shown only (encrypted content never visible to admins)
-        </p>
-        
+
+        <!-- Toolbar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-2xl font-bold">Secrets</h2>
+            <p class="text-gray-500 text-xs mt-0.5">Metadata only — encrypted content never visible to admins</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input type="checkbox" id="showArchived" checked class="w-4 h-4 accent-purple-600">
+              Show archived
+            </label>
+            <button id="selectAllBtn"
+              class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 transition text-gray-700">
+              Select all
+            </button>
+            <button id="deleteSelectedBtn"
+              class="hidden px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition">
+              &#128465;&#65039; Delete selected (<span id="selectedCount">0</span>)
+            </button>
+          </div>
+        </div>
+
         <div id="secretList" class="space-y-2">
-          <!-- Will be populated -->
+          <!-- Populated by loadStats() -->
         </div>
       </div>
 
@@ -435,9 +453,42 @@
       document.getElementById('adminToken').value = '';
     });
 
-    // ─── Build secret card via DOM (avoids nested template literal parse errors) ──
+    // ─── Selection state ──────────────────────────────────────────────────────
+    const selectedIds = new Set();
+
+    function updateSelectionUI() {
+      const count = selectedIds.size;
+      const btn   = document.getElementById('deleteSelectedBtn');
+      const span  = document.getElementById('selectedCount');
+      span.textContent = count;
+      count > 0 ? btn.classList.remove('hidden') : btn.classList.add('hidden');
+      const allCheckboxes = document.querySelectorAll('.secret-checkbox:not(:disabled)');
+      const allChecked    = allCheckboxes.length > 0 && [...allCheckboxes].every(function(cb) { return cb.checked; });
+      document.getElementById('selectAllBtn').textContent = allChecked ? 'Deselect all' : 'Select all';
+    }
+
+    // ─── Build secret card via DOM ────────────────────────────────────────────
     function buildSecretCard(s) {
+      const wrapper     = document.createElement('div');
+      wrapper.dataset.id     = s.id;
+      wrapper.dataset.viewed = s.viewed ? '1' : '0';
+      wrapper.style.cssText  = 'display:flex;align-items:flex-start;gap:8px;';
+
+      // Checkbox (disabled + dimmed for archived)
+      const checkbox = document.createElement('input');
+      checkbox.type      = 'checkbox';
+      checkbox.className = 'secret-checkbox w-4 h-4 accent-purple-600 mt-3.5 shrink-0'
+        + (s.viewed ? ' opacity-30 cursor-not-allowed' : ' cursor-pointer');
+      checkbox.disabled   = s.viewed;
+      checkbox.dataset.id = s.id;
+      checkbox.addEventListener('change', function() {
+        if (this.checked) selectedIds.add(s.id);
+        else              selectedIds.delete(s.id);
+        updateSelectionUI();
+      });
+
       const div         = document.createElement('div');
+      div.style.flex    = '1';
       const createdDate = new Date(s.createdAt);
       const timeAgo     = getTimeAgo(createdDate);
       const expiresDate = s.expiresAt ? new Date(s.expiresAt) : null;
@@ -446,7 +497,7 @@
         + ' border rounded p-4';
 
       const statusBadge = s.viewed
-        ? '<span class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">&#128065;&#65039; Viewed</span>'
+        ? '<span class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">&#128065;&#65039; Archived</span>'
         : '<span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">&#128994; Active</span>';
       const viewsBadge = (s.maxViews && s.maxViews > 1)
         ? '<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">&#128065;&#65039; '
@@ -460,7 +511,6 @@
           + s.fileCount + ' file(s)</span>'
         : '';
 
-      // View history
       let historyHTML = '';
       if (s.viewerLog && s.viewerLog.length > 0) {
         const rows = s.viewerLog.map(function(v) {
@@ -479,14 +529,14 @@
           + escapeHtml(s.viewedByIP || 'unknown') + '</div>';
       }
 
-      const deleteBtn = !s.viewed
-        ? '<button onclick="deleteSingleSecret(\'' + escapeHtml(s.id) + '\')" '
-          + 'class="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition shrink-0" '
-          + 'title="Delete this secret">&#128465;&#65039; Delete</button>'
-        : '<span class="ml-4 text-xs text-gray-400 italic shrink-0">Archived</span>';
+      const actionHTML = !s.viewed
+        ? '<button data-delete-id="' + escapeHtml(s.id) + '" '
+          + 'class="delete-single-btn ml-2 px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition shrink-0" '
+          + 'title="Delete">&#128465;&#65039;</button>'
+        : '<span class="ml-2 text-xs text-gray-400 italic shrink-0">Archived</span>';
 
       div.innerHTML =
-        '<div class="flex items-start justify-between">'
+        '<div class="flex items-start">'
         + '<div class="flex-1 min-w-0">'
         + '<div class="flex items-center gap-2 mb-2 flex-wrap">'
         + '<code class="text-sm text-gray-700 font-mono break-all">' + escapeHtml(s.id) + '</code>'
@@ -498,18 +548,46 @@
             ? '<div>&#9201;&#65039; Expires: ' + expiresDate.toLocaleString() + '</div>' : '')
         + '<div>&#127760; Created by IP: ' + escapeHtml(s.clientIP || 'unknown') + '</div>'
         + historyHTML
-        + '</div>'
-        + '</div>'
-        + deleteBtn
+        + '</div></div>'
+        + actionHTML
         + '</div>';
 
-      return div;
+      div.querySelector('[data-delete-id]')?.addEventListener('click', function() {
+        deleteSingleSecret(this.dataset.deleteId);
+      });
+
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(div);
+      return wrapper;
     }
 
     function escapeHtml(str) {
       return String(str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ─── Cached secrets for re-rendering on filter change ────────────────────
+    let cachedSecrets = [];
+
+    function renderSecretList() {
+      const showArchived = document.getElementById('showArchived').checked;
+      const secretList   = document.getElementById('secretList');
+      secretList.innerHTML = '';
+      selectedIds.clear();
+      updateSelectionUI();
+
+      const filtered = cachedSecrets.filter(function(s) {
+        return showArchived || !s.viewed;
+      });
+
+      if (filtered.length === 0) {
+        secretList.innerHTML = '<p class="text-gray-500 text-sm">'
+          + (cachedSecrets.length === 0 ? 'No secrets yet.' : 'No secrets match the current filter.')
+          + '</p>';
+        return;
+      }
+      filtered.forEach(function(s) { secretList.appendChild(buildSecretCard(s)); });
     }
 
     // Load stats
@@ -527,13 +605,8 @@
         document.getElementById('totalViewed').textContent  = data.totalViewed;
         document.getElementById('lastUpdate').textContent   = new Date().toLocaleTimeString();
 
-        const secretList = document.getElementById('secretList');
-        secretList.innerHTML = '';
-        if (data.secrets.length === 0) {
-          secretList.innerHTML = '<p class="text-gray-500 text-sm">No secrets (active or viewed)</p>';
-        } else {
-          data.secrets.forEach(function(s) { secretList.appendChild(buildSecretCard(s)); });
-        }
+        cachedSecrets = data.secrets || [];
+        renderSecretList();
 
       } catch (err) {
         console.error('Failed to load stats:', err);
@@ -553,28 +626,63 @@
     }
 
     // Delete single secret
-    window.deleteSingleSecret = async function(secretId) {
-      if (!confirm(`Delete secret ${secretId}?\n\nThis cannot be undone.`)) {
-        return;
-      }
-
+    async function deleteSingleSecret(secretId) {
+      if (!confirm('Delete secret ' + secretId + '?\n\nThis cannot be undone.')) return;
       try {
-        const res = await fetch(`${API_URL}/admin/secret/${secretId}`, {
+        const res = await fetch(API_URL + '/admin/secret/' + secretId, {
           method: 'DELETE',
           headers: { 'X-Admin-Token': adminToken }
         });
-
-        if (!res.ok) {
-          throw new Error('Delete failed');
-        }
-
-        // Refresh the list
+        if (!res.ok) throw new Error('Delete failed');
+        selectedIds.delete(secretId);
         loadStats();
       } catch (err) {
         console.error('Failed to delete secret:', err);
         alert('Failed to delete secret');
       }
-    };
+    }
+
+    // ─── Toolbar: show/hide archived ─────────────────────────────────────────
+    document.getElementById('showArchived').addEventListener('change', renderSecretList);
+
+    // ─── Toolbar: select all / deselect all ──────────────────────────────────
+    document.getElementById('selectAllBtn').addEventListener('click', function() {
+      const checkboxes = document.querySelectorAll('.secret-checkbox:not(:disabled)');
+      const allChecked = [...checkboxes].every(function(cb) { return cb.checked; });
+      checkboxes.forEach(function(cb) {
+        cb.checked = !allChecked;
+        if (!allChecked) selectedIds.add(cb.dataset.id);
+        else             selectedIds.delete(cb.dataset.id);
+      });
+      updateSelectionUI();
+    });
+
+    // ─── Toolbar: delete selected ─────────────────────────────────────────────
+    document.getElementById('deleteSelectedBtn').addEventListener('click', async function() {
+      const ids = [...selectedIds];
+      if (ids.length === 0) return;
+      if (!confirm('Delete ' + ids.length + ' selected secret(s)?\n\nThis cannot be undone.')) return;
+
+      const btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Deleting...';
+
+      let failed = 0;
+      await Promise.all(ids.map(async function(id) {
+        try {
+          const res = await fetch(API_URL + '/admin/secret/' + id, {
+            method: 'DELETE',
+            headers: { 'X-Admin-Token': adminToken }
+          });
+          if (!res.ok) failed++;
+          else         selectedIds.delete(id);
+        } catch { failed++; }
+      }));
+
+      btn.disabled = false;
+      if (failed > 0) alert(failed + ' deletion(s) failed.');
+      loadStats();
+    });
 
     // Refresh stats
     document.getElementById('refreshBtn').addEventListener('click', loadStats);
