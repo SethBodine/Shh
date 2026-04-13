@@ -264,6 +264,53 @@ echo "$CT_B64" | tr '-_' '+/' | base64 -d \
           <div id="apiDocsFileBody">
             <p class="text-gray-500 text-xs">Loading feature status from server...</p>
           </div>
+          <div class="mt-3">
+            <p class="text-xs text-gray-500 mb-2">💻 <strong>Bash example — encrypt a file and attach to a secret:</strong></p>
+            <pre class="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto">#!/bin/bash
+# 1. Generate key and IV
+KEY_B64=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')
+IV_HEX=$(openssl rand -hex 12)
+KEY_HEX=$(echo "$KEY_B64" | tr '-_' '+/' | base64 -d | xxd -p -c 256)
+IV_B64=$(echo "$IV_HEX" | xxd -r -p | base64 | tr '+/' '-_' | tr -d '=\n')
+
+# 2. Encrypt the secret text
+SECRET="My secret message"
+TEXT_CT=$(printf '%s' "$SECRET" \
+  | openssl enc -aes-256-gcm -nosalt -nopad -K "$KEY_HEX" -iv "$IV_HEX" 2>/dev/null \
+  | base64 | tr '+/' '-_' | tr -d '=\n')
+TEXT_PAYLOAD="${IV_B64}${TEXT_CT}"
+
+# 3. Encrypt the file using the same key
+FILE="/path/to/document.pdf"
+FILE_IV_HEX=$(openssl rand -hex 12)
+FILE_IV_B64=$(echo "$FILE_IV_HEX" | xxd -r -p | base64 | tr '+/' '-_' | tr -d '=\n')
+FILE_CT=$(openssl enc -aes-256-gcm -nosalt -nopad -K "$KEY_HEX" -iv "$FILE_IV_HEX" \
+  -in "$FILE" 2>/dev/null | base64 | tr '+/' '-_' | tr -d '=\n')
+FILE_PAYLOAD="${FILE_IV_B64}${FILE_CT}"
+
+FILENAME=$(basename "$FILE")
+FILESIZE=$(wc -c &lt; "$FILE" | tr -d ' ')
+MIMETYPE="application/pdf"
+
+# 4. POST secret + encrypted file
+RESULT=$(curl -s -X POST https://your-site.pages.dev/api/secret \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"encryptedData\": \"$TEXT_PAYLOAD\",
+    \"ttl\": 12,
+    \"maxViews\": 1,
+    \"files\": [{
+      \"name\": \"$FILENAME\",
+      \"type\": \"$MIMETYPE\",
+      \"size\": $FILESIZE,
+      \"data\": \"$FILE_PAYLOAD\"
+    }]
+  }")
+
+ID=$(echo "$RESULT" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+echo "Share: https://your-site.pages.dev/view/$ID#$KEY_B64"</pre>
+            <p class="text-xs text-orange-600 mt-2">⚠️ Browser-based creation is recommended. The bash approach omits the AES-GCM authentication tag that OpenSSL produces — the recipient's browser will reject files encrypted this way. Use the web UI for real file transfers; this example shows the payload structure only.</p>
+          </div>
         </div>
 
         <div class="bg-red-50 p-4 rounded border border-red-200">
