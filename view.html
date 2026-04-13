@@ -6,149 +6,96 @@
   <title>View Secret - Shh</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {
-      --gradient-start: #667eea;
-      --gradient-end: #764ba2;
-    }
-    
-    .gradient-bg {
-      background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-      transition: background 0.3s ease;
-    }
-    
-    .fade-in {
-      animation: fadeIn 0.3s ease-in;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .blur-content {
-      filter: blur(10px);
-      user-select: none;
-      pointer-events: none;
-    }
-    
-    /* Dark mode styles */
-    body.dark-mode {
-      background-color: #1a1a2e;
-    }
-    
-    body.dark-mode .bg-white {
-      background-color: #16213e;
-      color: #e4e4e7;
-    }
-    
-    body.dark-mode .text-gray-700,
-    body.dark-mode .text-gray-800 {
-      color: #d1d5db;
-    }
-    
-    body.dark-mode .text-gray-600 {
-      color: #9ca3af;
-    }
-    
-    body.dark-mode .text-gray-500 {
-      color: #6b7280;
-    }
-    
-    body.dark-mode .border-gray-300,
-    body.dark-mode .border-gray-200 {
-      border-color: #374151;
-    }
-    
-    body.dark-mode .bg-gray-50 {
-      background-color: #0f3460;
-    }
-    
-    .theme-btn {
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    
-    .theme-btn:hover {
-      transform: scale(1.1);
-    }
+    :root { --gradient-start: #667eea; --gradient-end: #764ba2; }
+    .gradient-bg { background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); transition: background 0.3s ease; }
+    .fade-in { animation: fadeIn 0.3s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    body.dark-mode { background-color: #1a1a2e; }
+    body.dark-mode .bg-white { background-color: #16213e; color: #e4e4e7; }
+    body.dark-mode .text-gray-700, body.dark-mode .text-gray-800 { color: #d1d5db; }
+    body.dark-mode .text-gray-600 { color: #9ca3af; }
+    body.dark-mode .text-gray-500 { color: #6b7280; }
+    body.dark-mode .border-gray-300, body.dark-mode .border-gray-200 { border-color: #374151; }
+    body.dark-mode .bg-gray-50 { background-color: #0f3460; }
+    body.dark-mode input[type="password"] { background-color: #0f3460; color: #e4e4e7; border-color: #374151; }
+    .theme-btn { cursor: pointer; transition: transform 0.2s; }
+    .theme-btn:hover { transform: scale(1.1); }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-  <!-- DEBUG -->
-  <script>
-    console.log('=== VIEW.HTML LOADED ===');
-    console.log('Current URL:', window.location.href);
-    console.log('Pathname:', window.location.pathname);
-    console.log('Hash:', window.location.hash);
-  </script>
-  
-  <!-- Header -->
+
   <header class="gradient-bg text-white py-6 shadow-lg">
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold">
-            <a href="/" class="hover:opacity-80 transition">🤫 Shh - Secure Secrets</a>
-          </h1>
+          <h1 class="text-3xl font-bold"><a href="/" class="hover:opacity-80 transition">🤫 Shh - Secure Secrets</a></h1>
           <p class="text-purple-100 mt-1">Share secrets securely with self-destructing links</p>
         </div>
         <div class="flex items-center gap-3">
-          <!-- Theme Selector -->
           <select id="themeSelect" class="px-3 py-2 rounded bg-white/20 text-white border border-white/30 text-sm cursor-pointer hover:bg-white/30 transition">
             <option value="purple" class="bg-gray-800 text-white">Purple</option>
-            <option value="blue" class="bg-gray-800 text-white">Ocean Blue</option>
-            <option value="green" class="bg-gray-800 text-white">Forest Green</option>
+            <option value="blue"   class="bg-gray-800 text-white">Ocean Blue</option>
+            <option value="green"  class="bg-gray-800 text-white">Forest Green</option>
             <option value="orange" class="bg-gray-800 text-white">Sunset Orange</option>
-            <option value="pink" class="bg-gray-800 text-white">Sakura Pink</option>
-            <option value="teal" class="bg-gray-800 text-white">Teal Wave</option>
+            <option value="pink"   class="bg-gray-800 text-white">Sakura Pink</option>
+            <option value="teal"   class="bg-gray-800 text-white">Teal Wave</option>
           </select>
-          <!-- Day/Night Toggle -->
-          <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">
-            🌙
-          </button>
+          <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">🌙</button>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Container -->
   <div class="container mx-auto px-4 py-8 max-w-3xl">
-    
-    <!-- Loading State -->
+
+    <!-- Loading -->
     <div id="loadingState" class="bg-white rounded-lg shadow-md p-8 text-center">
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
       <p class="text-gray-600">Checking secret...</p>
     </div>
 
-    <!-- Warning Before Viewing -->
+    <!-- Warning / Passphrase -->
     <div id="warningState" class="hidden bg-white rounded-lg shadow-md p-8">
       <div class="text-center mb-6">
         <div class="text-6xl mb-4">⚠️</div>
         <h2 class="text-2xl font-bold text-gray-800 mb-2">Warning: One-Time View</h2>
-        <p class="text-gray-600">This secret can only be viewed once.</p>
+        <p class="text-gray-600">This secret will be permanently destroyed after <span id="viewsLabel">its first view</span>.</p>
       </div>
 
-      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
         <p class="text-yellow-800 text-sm">
-          <strong>Important:</strong> Once you click "View Secret" below, this link will be 
-          permanently destroyed. Make sure you're ready to save or copy the information.
+          <strong>Important:</strong> Once you click "View Secret", a view is consumed and cannot be reversed.
+          Make sure you're ready to save or copy the information.
         </p>
       </div>
 
-      <div id="secretInfo" class="mb-6 text-sm text-gray-600">
-        <!-- Will be populated with secret info -->
+      <!-- Secret metadata info -->
+      <div id="secretInfo" class="mb-4 text-sm text-gray-600 space-y-1"></div>
+
+      <!-- Expiry countdown -->
+      <div id="expiryCountdown" class="hidden mb-4 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded p-3"></div>
+
+      <!-- Passphrase entry (shown only when URL fragment has pp. prefix) -->
+      <div id="passphraseSection" class="hidden mb-4">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3">
+          <p class="text-blue-800 text-sm">
+            🔑 <strong>This secret is passphrase-protected.</strong> Enter the passphrase to decrypt it.
+          </p>
+        </div>
+        <label class="block text-gray-700 font-medium mb-2">Passphrase</label>
+        <input type="password" id="passphraseEntry"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+          placeholder="Enter the passphrase">
+        <div id="passphraseError" class="hidden mt-2 text-red-600 text-sm">❌ Incorrect passphrase — decryption failed.</div>
       </div>
 
-      <button 
-        id="viewBtn" 
+      <button id="viewBtn"
         class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200">
-        🔓 View Secret (This Will Destroy the Link)
+        🔓 View Secret (This Will Consume a View)
       </button>
 
       <div class="text-center mt-4">
-        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm">
-          ← Create your own secret
-        </a>
+        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm">← Create your own secret</a>
       </div>
     </div>
 
@@ -157,51 +104,44 @@
       <div class="mb-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-2xl font-bold text-gray-800">Secret Message</h2>
-          <button 
-            id="copySecretBtn" 
-            class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition text-sm">
+          <button id="copySecretBtn"
+            class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition text-sm min-w-[90px]">
             📋 Copy
           </button>
         </div>
-        
         <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <pre id="secretContent" class="whitespace-pre-wrap text-gray-800 font-mono text-sm"></pre>
         </div>
       </div>
 
-      <!-- Files Section -->
+      <!-- Files -->
       <div id="filesSection" class="hidden mb-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-3">Attached Files</h3>
-        <div id="filesList" class="space-y-2">
-          <!-- Files will be listed here -->
-        </div>
+        <div id="filesList" class="space-y-2"></div>
       </div>
 
-      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+      <!-- Post-view status -->
+      <div id="destroyedNotice" class="bg-red-50 border border-red-200 rounded-lg p-4">
         <p class="text-red-800 text-sm">
-          <strong>⚠️ This secret has been destroyed.</strong> The link is now invalid and 
-          cannot be accessed again. Make sure to save this information securely.
+          <strong>⚠️ This secret has been destroyed.</strong> The link is now invalid and cannot be accessed again.
         </p>
+      </div>
+      <div id="viewsRemainingNotice" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p class="text-blue-800 text-sm" id="viewsRemainingText"></p>
       </div>
 
       <div class="text-center mt-6">
-        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
-          ← Create your own secret
-        </a>
+        <a href="/" class="text-purple-600 hover:text-purple-800 text-sm font-medium">← Create your own secret</a>
       </div>
     </div>
 
-    <!-- Error State -->
+    <!-- Error -->
     <div id="errorState" class="hidden bg-white rounded-lg shadow-md p-8">
       <div class="text-center">
         <div class="text-6xl mb-4">❌</div>
         <h2 class="text-2xl font-bold text-gray-800 mb-2">Secret Not Found</h2>
-        <p class="text-gray-600 mb-6" id="errorMessage">
-          This secret has either expired, been viewed already, or never existed.
-        </p>
-        <a 
-          href="/" 
-          class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+        <p class="text-gray-600 mb-6" id="errorMessage">This secret has either expired, been viewed already, or never existed.</p>
+        <a href="/" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
           Create a Secret
         </a>
       </div>
@@ -209,7 +149,6 @@
 
   </div>
 
-  <!-- Footer -->
   <footer class="bg-gray-100 border-t border-gray-200 py-4 mt-8">
     <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
       <a href="/" class="hover:text-purple-600 font-medium">🏠 Home</a>
@@ -222,215 +161,212 @@
 
   <script>
     const API_URL = '/api';
-    
+
+    // ===================================
+    // SAFE BASE64URL DECODER
+    // ===================================
+    function base64urlToUint8Array(b64url) {
+      const b64     = b64url.replace(/-/g, '+').replace(/_/g, '/');
+      const padded  = b64 + '='.repeat((4 - b64.length % 4) % 4);
+      const binary  = atob(padded);
+      const bytes   = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
     // ===================================
     // CLIENT-SIDE DECRYPTION
     // ===================================
-    
-    // Import key from base64 (from URL fragment)
-    async function importKeyFromBase64(base64) {
-      const base64url = base64.replace(/-/g, '+').replace(/_/g, '/');
-      const padding = '='.repeat((4 - base64url.length % 4) % 4);
-      const base64Padded = base64url + padding;
-      
-      const binary = atob(base64Padded);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      
-      return await crypto.subtle.importKey(
-        'raw',
-        bytes,
-        { name: 'AES-GCM' },
-        false,
-        ['decrypt']
-      );
+    async function importKeyFromBytes(bytes) {
+      return await crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM' }, false, ['decrypt']);
     }
-    
-    // Decrypt data with AES-GCM (returns text)
+
     async function decryptData(encryptedBase64, key) {
-      const base64url = encryptedBase64.replace(/-/g, '+').replace(/_/g, '/');
-      const padding = '='.repeat((4 - base64url.length % 4) % 4);
-      const base64Padded = base64url + padding;
-      
-      const binary = atob(base64Padded);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      
-      // Extract IV (first 12 bytes) and ciphertext
-      const iv = bytes.slice(0, 12);
+      const bytes      = base64urlToUint8Array(encryptedBase64);
+      const iv         = bytes.slice(0, 12);
       const ciphertext = bytes.slice(12);
-      
-      const plaintext = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        ciphertext
-      );
-      
-      const decoder = new TextDecoder();
-      return decoder.decode(plaintext);
+      const plaintext  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+      return new TextDecoder().decode(plaintext);
     }
-    
-    // Decrypt binary data (for files) - returns ArrayBuffer
+
     async function decryptBinary(encryptedBase64, key) {
-      const base64url = encryptedBase64.replace(/-/g, '+').replace(/_/g, '/');
-      const padding = '='.repeat((4 - base64url.length % 4) % 4);
-      const base64Padded = base64url + padding;
-      
-      const binary = atob(base64Padded);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      
-      // Extract IV (first 12 bytes) and ciphertext
-      const iv = bytes.slice(0, 12);
+      const bytes      = base64urlToUint8Array(encryptedBase64);
+      const iv         = bytes.slice(0, 12);
       const ciphertext = bytes.slice(12);
-      
-      const plaintext = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        ciphertext
-      );
-      
-      return plaintext; // Return ArrayBuffer directly
+      return await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
     }
-    
+
     // ===================================
-    // THEME & MODE MANAGEMENT
+    // PASSPHRASE KEY UNWRAPPING
     // ===================================
-    
+    async function deriveUnwrappingKey(passphrase, salt) {
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']
+      );
+      return await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-KW', length: 256 },
+        false,
+        ['unwrapKey']
+      );
+    }
+
+    async function unwrapEncryptionKey(saltB64, wrappedKeyB64, passphrase) {
+      const salt        = base64urlToUint8Array(saltB64);
+      const wrappedKey  = base64urlToUint8Array(wrappedKeyB64);
+      const unwrapper   = await deriveUnwrappingKey(passphrase, salt);
+      return await crypto.subtle.unwrapKey(
+        'raw', wrappedKey, unwrapper, 'AES-KW',
+        { name: 'AES-GCM' }, false, ['decrypt']
+      );
+    }
+
+    // ===================================
+    // CLIPBOARD HELPER (with fallback)
+    // ===================================
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.style.cssText = 'position:fixed;opacity:0;';
+        document.body.appendChild(el);
+        el.focus(); el.select();
+        try { document.execCommand('copy'); return true; } catch { return false; }
+        finally { document.body.removeChild(el); }
+      }
+    }
+
+    // ===================================
+    // THEME & MODE
+    // ===================================
     const themes = {
       purple: { start: '#667eea', end: '#764ba2' },
-      blue: { start: '#4facfe', end: '#00f2fe' },
-      green: { start: '#56ab2f', end: '#a8e063' },
+      blue:   { start: '#4facfe', end: '#00f2fe' },
+      green:  { start: '#56ab2f', end: '#a8e063' },
       orange: { start: '#f46b45', end: '#eea849' },
-      pink: { start: '#ff6a88', end: '#ff99ac' },
-      teal: { start: '#2ebf91', end: '#8360c3' }
+      pink:   { start: '#ff6a88', end: '#ff99ac' },
+      teal:   { start: '#2ebf91', end: '#8360c3' },
     };
-    
-    // Initialize theme and mode
     function initializeTheme() {
-      const savedTheme = localStorage.getItem('theme') || 'purple';
-      document.getElementById('themeSelect').value = savedTheme;
-      applyTheme(savedTheme);
-      
-      const savedMode = localStorage.getItem('mode');
-      if (savedMode) {
-        applyMode(savedMode);
-      } else {
-        applyTimeBasedMode();
-      }
+      const saved = localStorage.getItem('theme') || 'purple';
+      document.getElementById('themeSelect').value = saved;
+      applyTheme(saved);
+      const mode = localStorage.getItem('mode');
+      mode ? applyMode(mode) : applyTimeBasedMode();
     }
-    
-    function applyTheme(themeName) {
-      const theme = themes[themeName];
-      document.documentElement.style.setProperty('--gradient-start', theme.start);
-      document.documentElement.style.setProperty('--gradient-end', theme.end);
-      localStorage.setItem('theme', themeName);
+    function applyTheme(name) {
+      const t = themes[name];
+      document.documentElement.style.setProperty('--gradient-start', t.start);
+      document.documentElement.style.setProperty('--gradient-end', t.end);
+      localStorage.setItem('theme', name);
     }
-    
     function applyMode(mode) {
-      const body = document.body;
-      const toggle = document.getElementById('modeToggle');
-      
-      if (mode === 'dark') {
-        body.classList.add('dark-mode');
-        toggle.textContent = '☀️';
-      } else {
-        body.classList.remove('dark-mode');
-        toggle.textContent = '🌙';
-      }
+      document.body.classList.toggle('dark-mode', mode === 'dark');
+      document.getElementById('modeToggle').textContent = mode === 'dark' ? '☀️' : '🌙';
       localStorage.setItem('mode', mode);
     }
-    
     function applyTimeBasedMode() {
-      const hour = new Date().getHours();
-      const mode = (hour >= 18 || hour < 6) ? 'dark' : 'light';
-      applyMode(mode);
+      const h = new Date().getHours();
+      applyMode(h >= 18 || h < 6 ? 'dark' : 'light');
     }
-    
-    document.getElementById('themeSelect').addEventListener('change', (e) => {
-      applyTheme(e.target.value);
-    });
-    
+    document.getElementById('themeSelect').addEventListener('change', e => applyTheme(e.target.value));
     document.getElementById('modeToggle').addEventListener('click', () => {
-      const isDark = document.body.classList.contains('dark-mode');
-      applyMode(isDark ? 'light' : 'dark');
+      applyMode(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
     });
-    
     initializeTheme();
-    
+
     // ===================================
-    // SECRET VIEWING LOGIC
+    // PARSE URL
     // ===================================
-    
-    // Get secret ID from URL
-    const pathParts = window.location.pathname.split('/');
-    const secretId = pathParts[pathParts.length - 1];
-    
-    console.log('[VIEW] Full pathname:', window.location.pathname);
-    console.log('[VIEW] Path parts:', pathParts);
-    console.log('[VIEW] Extracted secret ID:', secretId);
-    
-    // Get encryption key from URL fragment (after #)
-    const urlFragment = window.location.hash.slice(1); // Remove #
-    
-    console.log('[VIEW] URL hash:', window.location.hash);
-    console.log('[VIEW] Extracted key fragment:', urlFragment);
-    
+    const pathParts  = window.location.pathname.split('/');
+    const secretId   = pathParts[pathParts.length - 1];
+    const urlFragment = window.location.hash.slice(1);
+
+    // Determine if passphrase-protected: fragment starts with "pp."
+    const isPassphraseProtected = urlFragment.startsWith('pp.');
+    let ppParts = null; // ['pp', salt, wrappedKey]
+    if (isPassphraseProtected) {
+      ppParts = urlFragment.split('.');
+    }
+
     if (!secretId || secretId === 'view' || secretId === '') {
-      showError('Invalid URL: Missing secret ID. URL should be /view/{id}#{key}');
-      console.error('[VIEW] No valid secret ID found in URL');
-      throw new Error('No secret ID in URL');
+      showError('Invalid URL: Missing secret ID');
+      throw new Error('No secret ID');
     }
-    
     if (!urlFragment) {
-      showError('Invalid link: Missing encryption key. URL should be /view/{id}#{key}');
-      console.error('[VIEW] No encryption key in URL fragment');
-      throw new Error('No encryption key in URL');
+      showError('Invalid link: Missing encryption key. The URL should contain #key after the secret ID.');
+      throw new Error('No key in fragment');
     }
-    
-    console.log('[VIEW] Initialization complete - ID and key present');
 
-    const loadingState = document.getElementById('loadingState');
-    const warningState = document.getElementById('warningState');
-    const contentState = document.getElementById('contentState');
-    const errorState = document.getElementById('errorState');
+    const loadingState  = document.getElementById('loadingState');
+    const warningState  = document.getElementById('warningState');
+    const contentState  = document.getElementById('contentState');
+    const errorState    = document.getElementById('errorState');
 
-    // Check secret
+    // ===================================
+    // EXPIRY COUNTDOWN
+    // ===================================
+    function formatCountdown(expiresAt) {
+      const msLeft = expiresAt - Date.now();
+      if (msLeft <= 0) return 'Expired';
+      const h = Math.floor(msLeft / 3600000);
+      const m = Math.floor((msLeft % 3600000) / 60000);
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
+    let countdownInterval = null;
+    function startCountdown(expiresAt) {
+      const el = document.getElementById('expiryCountdown');
+      el.classList.remove('hidden');
+      const update = () => {
+        el.textContent = `⏱️ This secret expires in ${formatCountdown(expiresAt)}`;
+      };
+      update();
+      countdownInterval = setInterval(update, 30000);
+    }
+
+    // ===================================
+    // CHECK SECRET METADATA
+    // ===================================
     async function checkSecret() {
       try {
         const res = await fetch(`${API_URL}/secret/${secretId}/metadata`);
-        
-        if (!res.ok) {
-          showError('Secret not found or already consumed.');
-          return;
-        }
+        if (!res.ok) { showError('Secret not found or already consumed.'); return; }
 
         const data = await res.json();
-        
-        if (data.viewed) {
-          showError('This secret has already been viewed and destroyed.');
-          return;
-        }
+        if (data.viewed) { showError('This secret has already been fully consumed and destroyed.'); return; }
 
-        // Show warning
         loadingState.classList.add('hidden');
         warningState.classList.remove('hidden');
 
-        // Update info
+        // Views label
+        const vr = data.viewsRemaining || 1;
+        const mv = data.maxViews       || 1;
+        document.getElementById('viewsLabel').textContent =
+          mv === 1 ? 'its first view' :
+          vr === 1 ? 'its last view'  :
+          `${vr} more view${vr > 1 ? 's' : ''}`;
+
+        // Metadata bullets
         const infoDiv = document.getElementById('secretInfo');
-        let infoHTML = '<ul class="space-y-2">';
-        infoHTML += '<li>✅ Secret is available and has not been viewed</li>';
-        if (data.hasFiles) {
-          infoHTML += `<li>📎 Contains ${data.fileCount} attached file(s)</li>`;
+        const bullets = [];
+        bullets.push(`✅ Secret is available — <strong>${vr} view${vr > 1 ? 's' : ''} remaining</strong> of ${mv}`);
+        if (data.hasFiles) bullets.push(`📎 Contains ${data.fileCount} attached file(s)`);
+        if (data.passphraseProtected) bullets.push(`🔑 Passphrase protected`);
+        infoDiv.innerHTML = '<ul class="space-y-1">' + bullets.map(b => `<li>${b}</li>`).join('') + '</ul>';
+
+        // Expiry countdown
+        if (data.expiresAt) startCountdown(data.expiresAt);
+
+        // Show passphrase entry if fragment signals it
+        if (isPassphraseProtected) {
+          document.getElementById('passphraseSection').classList.remove('hidden');
         }
-        infoHTML += '</ul>';
-        infoDiv.innerHTML = infoHTML;
 
       } catch (err) {
         console.error('Error checking secret:', err);
@@ -438,56 +374,90 @@
       }
     }
 
-    // View secret
+    // ===================================
+    // VIEW SECRET
+    // ===================================
     document.getElementById('viewBtn').addEventListener('click', async () => {
       const btn = document.getElementById('viewBtn');
       btn.disabled = true;
-      btn.textContent = 'Fetching encrypted secret...';
+      btn.textContent = 'Decrypting...';
+
+      // Clear any previous passphrase error
+      document.getElementById('passphraseError').classList.add('hidden');
 
       try {
-        // STEP 1: Import decryption key from URL fragment
-        const decryptionKey = await importKeyFromBase64(urlFragment);
-        
-        btn.textContent = 'Retrieving...';
-        
-        // STEP 2: Fetch encrypted data from server
-        const res = await fetch(`${API_URL}/secret/${secretId}/view`, {
-          method: 'POST',
-        });
-
-        if (!res.ok) {
-          const error = await res.json();
-          showError(error.error);
-          return;
+        // STEP 1: Resolve decryption key from URL fragment
+        let decryptionKey;
+        if (isPassphraseProtected) {
+          const passphrase = document.getElementById('passphraseEntry').value;
+          if (!passphrase) {
+            document.getElementById('passphraseError').textContent = '❌ Please enter the passphrase.';
+            document.getElementById('passphraseError').classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = '🔓 View Secret (This Will Consume a View)';
+            return;
+          }
+          try {
+            // pp.{salt}.{wrappedKey}
+            decryptionKey = await unwrapEncryptionKey(ppParts[1], ppParts[2], passphrase);
+          } catch {
+            document.getElementById('passphraseError').classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = '🔓 View Secret (This Will Consume a View)';
+            return;
+          }
+        } else {
+          const keyBytes = base64urlToUint8Array(urlFragment);
+          decryptionKey  = await importKeyFromBytes(keyBytes);
         }
 
+        // STEP 2: Fetch encrypted data (this consumes a view)
+        btn.textContent = 'Retrieving...';
+        const res = await fetch(`${API_URL}/secret/${secretId}/view`, { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json();
+          showError(err.error || 'Failed to retrieve secret.');
+          return;
+        }
         const data = await res.json();
-        
+
+        // STEP 3: Decrypt text
         btn.textContent = 'Decrypting...';
-        
-        // STEP 3: Decrypt the data client-side
+        if (countdownInterval) clearInterval(countdownInterval);
+
         const plaintext = await decryptData(data.encryptedData, decryptionKey);
 
-        // Show content
+        // STEP 4: Show content
         warningState.classList.add('hidden');
         contentState.classList.remove('hidden');
-
         document.getElementById('secretContent').textContent = plaintext || '(No text content)';
 
-        // STEP 4: Decrypt files if any
+        // STEP 5: Show view status
+        const viewsRemaining = data.viewsRemaining || 0;
+        if (data.isLastView) {
+          document.getElementById('destroyedNotice').classList.remove('hidden');
+          document.getElementById('viewsRemainingNotice').classList.add('hidden');
+        } else {
+          document.getElementById('destroyedNotice').classList.add('hidden');
+          document.getElementById('viewsRemainingNotice').classList.remove('hidden');
+          document.getElementById('viewsRemainingText').textContent =
+            `ℹ️ This was not the last view — ${viewsRemaining} view${viewsRemaining > 1 ? 's' : ''} remaining on this link.`;
+        }
+
+        // STEP 6: Decrypt files
         if (data.files && data.files.length > 0) {
           document.getElementById('filesSection').classList.remove('hidden');
           const filesList = document.getElementById('filesList');
-          
           const filesHTML = [];
+          window.decryptedFiles = [];
+
           for (let i = 0; i < data.files.length; i++) {
             const file = data.files[i];
             try {
-              const decryptedFileData = await decryptData(file.data, decryptionKey);
-              
-              // Store decrypted file data in a data attribute
+              const decryptedBuffer = await decryptBinary(file.data, decryptionKey);
+              window.decryptedFiles[i] = decryptedBuffer;
               filesHTML.push(`
-                <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3" data-file-index="${i}">
+                <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-3">
                   <div class="flex items-center gap-2">
                     <span class="text-2xl">📄</span>
                     <div>
@@ -495,18 +465,11 @@
                       <div class="text-xs text-gray-500">${formatFileSize(file.size)}</div>
                     </div>
                   </div>
-                  <button 
-                    onclick="downloadFile(${i}, '${escapeHtml(file.name)}', '${file.type}')"
+                  <button onclick="downloadFile(${i}, '${escapeHtml(file.name)}', '${escapeHtml(file.type || '')}')"
                     class="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700">
                     Download
                   </button>
-                </div>
-              `);
-              
-              // Store decrypted data for download
-              window.decryptedFiles = window.decryptedFiles || [];
-              window.decryptedFiles[i] = decryptedFileData;
-              
+                </div>`);
             } catch (err) {
               console.error('Error decrypting file:', file.name, err);
               filesHTML.push(`
@@ -518,8 +481,7 @@
                       <div class="text-xs text-red-600">Decryption failed</div>
                     </div>
                   </div>
-                </div>
-              `);
+                </div>`);
             }
           }
           filesList.innerHTML = filesHTML.join('');
@@ -527,74 +489,57 @@
 
       } catch (err) {
         console.error('Error viewing secret:', err);
-        showError('Failed to decrypt secret. The link may be corrupted.');
+        showError('Failed to decrypt secret. The link may be corrupted or the passphrase is incorrect.');
       }
     });
 
-    // Copy secret to clipboard
-    document.getElementById('copySecretBtn').addEventListener('click', () => {
-      const content = document.getElementById('secretContent').textContent;
-      navigator.clipboard.writeText(content);
-      
-      const btn = document.getElementById('copySecretBtn');
-      btn.textContent = '✓ Copied!';
-      setTimeout(() => {
-        btn.textContent = '📋 Copy';
-      }, 2000);
+    // ===================================
+    // COPY SECRET BUTTON
+    // ===================================
+    document.getElementById('copySecretBtn').addEventListener('click', async () => {
+      const btn  = document.getElementById('copySecretBtn');
+      const text = document.getElementById('secretContent').textContent;
+      const ok   = await copyToClipboard(text);
+      btn.textContent = ok ? '✓ Copied!' : '❌ Failed';
+      setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
     });
 
-    function showError(message = null) {
+    // ===================================
+    // FILE DOWNLOAD
+    // ===================================
+    window.downloadFile = function(fileIndex, filename, mimeType) {
+      const buf = window.decryptedFiles[fileIndex];
+      if (!buf) { alert('File data not available'); return; }
+      const blob = new Blob([buf], { type: mimeType || 'application/octet-stream' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    };
+
+    // ===================================
+    // HELPERS
+    // ===================================
+    function showError(message) {
       loadingState.classList.add('hidden');
       warningState.classList.add('hidden');
       contentState.classList.add('hidden');
       errorState.classList.remove('hidden');
-      
-      if (message) {
-        document.getElementById('errorMessage').textContent = message;
-      }
+      if (message) document.getElementById('errorMessage').textContent = message;
     }
-
     function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
     }
-
     function formatFileSize(bytes) {
       if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
     }
 
-    // Download file using blob (avoids "too many arguments" error)
-    window.downloadFile = function(fileIndex, filename, mimeType) {
-      const decryptedArrayBuffer = window.decryptedFiles[fileIndex];
-      if (!decryptedArrayBuffer) {
-        alert('File data not available');
-        return;
-      }
-      
-      console.log('[DOWNLOAD] Creating blob for:', filename, 'size:', decryptedArrayBuffer.byteLength);
-      
-      // Create blob from ArrayBuffer
-      const blob = new Blob([decryptedArrayBuffer], { type: mimeType || 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      
-      // Create download link
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
-    };
-
-    // Initialize
+    // Init
     checkSecret();
   </script>
 </body>

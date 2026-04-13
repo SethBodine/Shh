@@ -55,16 +55,20 @@ export function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') {
     return false;
   }
-  
-  if (a.length !== b.length) {
-    return false;
+
+  // Do NOT early-return on length mismatch — that leaks whether the
+  // attacker's guess has the right character count (timing side-channel).
+  // Instead, always iterate max(a,b) characters and fold the length
+  // difference into the result accumulator.
+  const maxLen = Math.max(a.length, b.length);
+  let result = a.length ^ b.length; // non-zero if lengths differ
+
+  for (let i = 0; i < maxLen; i++) {
+    const aChar = i < a.length ? a.charCodeAt(i) : 0;
+    const bChar = i < b.length ? b.charCodeAt(i) : 0;
+    result |= aChar ^ bChar;
   }
-  
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  
+
   return result === 0;
 }
 
@@ -109,16 +113,6 @@ export function validateEncryptedData(data, maxSize = 4096) {
   }
   
   return { valid: true };
-}
-
-// ─── Rate Limiting ───────────────────────────────────────────────────────────
-
-/**
- * Generate rate limit key
- */
-export function getRateLimitKey(action, clientIP) {
-  const hour = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
-  return `ratelimit:${action}:${clientIP}:${hour}`;
 }
 
 // ─── Error Sanitization ──────────────────────────────────────────────────────
