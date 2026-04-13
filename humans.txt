@@ -1,0 +1,23 @@
+/* TEAM */
+Developer: Shh Secrets
+Contact: shhh@insecure.co.nz
+Location: Cloudflare Edge Network — Global
+
+/* THANKS */
+Claude (Anthropic) — architecture, implementation, and security review
+Cloudflare Workers & KV — runtime and storage
+Tailwind CSS — styling
+
+/* TECHNOLOGY */
+Backend:  Cloudflare Pages Functions (Workers runtime)
+Storage:  Cloudflare KV
+Crypto:   Web Crypto API — AES-256-GCM, PBKDF2, AES-KW (client-side only)
+Frontend: Vanilla HTML/JS, Tailwind CSS CDN
+CI/CD:    Cloudflare Pages — GitHub OAuth auto-deploy
+
+/* SECURITY */
+Zero-knowledge architecture — server never sees plaintext
+Encryption keys live only in URL fragments (never sent to server)
+Timing-safe admin token comparison
+Content-Security-Policy on all pages
+See /.well-known/security.txt for vulnerability reporting

@@ -188,7 +188,9 @@ export async function onRequest(context) {
         encryptedData, files, ttl, maxViews: maxViewsInt, viewCount: 0,
         passphraseProtected: !!passphraseProtected, createdAt: Date.now(),
         clientIP, userAgent: request.headers.get('User-Agent') || 'unknown',
-      }), { expirationTtl: ttl * 3600 });
+      // No KV TTL here — the scheduled cron archives expired secrets.
+      // A 30-day safety-net TTL ensures KV never holds data indefinitely.
+      }), { expirationTtl: 30 * 24 * 3600 });
       await sendDiscordNotification(env, clientIP, { title: '🔒 Secret Created (E2EE)', color: 3066993, ttl, maxViews: maxViewsInt, messageLength: encryptedData.length, files: files.map(f => f.name) });
       return new Response(JSON.stringify({ id: secretId, expiresIn: ttl, maxViews: maxViewsInt }), {
         status: 201, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }),
@@ -204,12 +206,21 @@ export async function onRequest(context) {
       if (!rawData)
         return new Response(JSON.stringify({ error: 'Secret not found or already consumed' }), { status: 404, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       const parsed = JSON.parse(rawData);
+      // Enforce intended TTL in software — KV TTL no longer handles this
+      const intendedExpiry = parsed.createdAt + (parsed.ttl || 24) * 3600000;
+      if (Date.now() > intendedExpiry) {
+        // Archive to expired: and clean up, just like the cron would
+        const sid = path.split('/')[1];
+        await env.SECRETS_KV.put('expired:'+sid, JSON.stringify({ ...parsed, expiredAt: Date.now(), adminExpired: false }), { expirationTtl: 30 * 24 * 3600 });
+        await env.SECRETS_KV.delete(generateSecretKey(sid));
+        return new Response(JSON.stringify({ error: 'Secret not found or already consumed' }), { status: 404, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
+      }
       const maxViews = parsed.maxViews || 1, viewCount = parsed.viewCount || 0;
       return new Response(JSON.stringify({
         exists: true, viewed: viewCount >= maxViews,
         hasFiles: !!(parsed.files && parsed.files.length), fileCount: parsed.files?.length || 0,
         viewsRemaining: maxViews - viewCount, maxViews,
-        expiresAt: parsed.createdAt + (parsed.ttl || 24) * 3600 * 1000,
+        expiresAt: intendedExpiry,
         passphraseProtected: !!parsed.passphraseProtected,
       }), { headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
     }
@@ -230,6 +241,12 @@ export async function onRequest(context) {
       if (!rawData)
         return new Response(JSON.stringify({ error: 'Secret not found or already consumed' }), { status: 404, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       const parsed      = JSON.parse(rawData);
+      // Enforce intended TTL — archive and reject if past expiry
+      if (Date.now() > parsed.createdAt + (parsed.ttl || 24) * 3600000) {
+        await env.SECRETS_KV.put('expired:'+secretId, JSON.stringify({ ...parsed, expiredAt: Date.now(), adminExpired: false }), { expirationTtl: 30 * 24 * 3600 });
+        await env.SECRETS_KV.delete(kvKey);
+        return new Response(JSON.stringify({ error: 'Secret has expired' }), { status: 404, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
+      }
       const maxViews    = parsed.maxViews   || 1;
       const newViewCount = (parsed.viewCount || 0) + 1;
       const isLastView  = newViewCount >= maxViews;
@@ -238,8 +255,8 @@ export async function onRequest(context) {
         await env.SECRETS_KV.put(`viewed:${secretId}`, JSON.stringify({ ...parsed, viewCount: newViewCount, viewerLog, viewedAt: Date.now(), viewedByIP: clientIP }), { expirationTtl: 7 * 24 * 3600 });
         await env.SECRETS_KV.delete(kvKey);
       } else {
-        const remainingTtl = Math.max(1, Math.ceil(((parsed.createdAt + (parsed.ttl || 24) * 3600000) - Date.now()) / 1000));
-        await env.SECRETS_KV.put(kvKey, JSON.stringify({ ...parsed, viewCount: newViewCount, viewerLog }), { expirationTtl: remainingTtl });
+        // No KV TTL — the cron or next request enforces expiry
+        await env.SECRETS_KV.put(kvKey, JSON.stringify({ ...parsed, viewCount: newViewCount, viewerLog }), { expirationTtl: 30 * 24 * 3600 });
       }
       await sendDiscordNotification(env, clientIP, { title: isLastView ? '👁️ Secret Viewed — Final (E2EE)' : `👁️ Secret Viewed (${newViewCount}/${maxViews}) (E2EE)`, color: 15158332, messageLength: parsed.encryptedData?.length || 0, viewCount: newViewCount, maxViews, files: parsed.files?.map(f => f.name) || [] });
       return new Response(JSON.stringify({ encryptedData: parsed.encryptedData, files: parsed.files, viewsRemaining: maxViews - newViewCount, isLastView }), {
@@ -258,30 +275,59 @@ export async function onRequest(context) {
         listAllKVKeys(env.SECRETS_KV, 'expired:'),
       ]);
 
-      const readAll = async (keys, builder, prefix) => {
-        const results = [];
-        for (const key of keys) {
-          const raw = await env.SECRETS_KV.get(key.name);
-          if (!raw) continue;
-          try { results.push(builder(key.name, JSON.parse(raw))); } catch (e) { console.error('Parse error:', key.name, e); }
-        }
-        return results;
-      };
+      const activeSecrets  = [];
+      const expiredSecrets = [];  // will include newly-discovered expired ones
 
-      const [activeSecrets, viewedSecrets, expiredSecrets] = await Promise.all([
-        readAll(activeKeys,  buildActiveSummary),
-        readAll(viewedKeys,  buildViewedSummary),
-        readAll(expiredKeys, buildExpiredSummary),
-      ]);
+      // Scan active keys — proactively archive any that have passed their intended TTL.
+      // This replaces reliance on a cron trigger (which does not run automatically on
+      // Cloudflare Pages; it must be configured separately in the dashboard).
+      const now = Date.now();
+      for (const key of activeKeys) {
+        const raw = await env.SECRETS_KV.get(key.name);
+        if (!raw) continue;
+        try {
+          const p         = JSON.parse(raw);
+          const intendedExpiry = p.createdAt + (p.ttl || 24) * 3600000;
+          if (now > intendedExpiry) {
+            // Past TTL — archive to expired: and remove from active
+            const secretId = key.name.replace('secret:', '');
+            const expiredRecord = { ...p, expiredAt: now, adminExpired: false };
+            await env.SECRETS_KV.put(
+              'expired:' + secretId,
+              JSON.stringify(expiredRecord),
+              { expirationTtl: 30 * 24 * 3600 }
+            );
+            await env.SECRETS_KV.delete(key.name);
+            expiredSecrets.push(buildExpiredSummary('expired:' + secretId, expiredRecord));
+          } else {
+            activeSecrets.push(buildActiveSummary(key.name, p));
+          }
+        } catch (e) { console.error('Parse error:', key.name, e); }
+      }
+
+      // Read existing viewed + expired archives
+      const viewedSecrets = [];
+      for (const key of viewedKeys) {
+        const raw = await env.SECRETS_KV.get(key.name);
+        if (!raw) continue;
+        try { viewedSecrets.push(buildViewedSummary(key.name, JSON.parse(raw))); }
+        catch (e) { console.error('Parse error:', key.name, e); }
+      }
+      for (const key of expiredKeys) {
+        const raw = await env.SECRETS_KV.get(key.name);
+        if (!raw) continue;
+        try { expiredSecrets.push(buildExpiredSummary(key.name, JSON.parse(raw))); }
+        catch (e) { console.error('Parse error:', key.name, e); }
+      }
 
       activeSecrets.sort((a, b)  => b.createdAt - a.createdAt);
       viewedSecrets.sort((a, b)  => (b.viewedAt  || b.createdAt) - (a.viewedAt  || a.createdAt));
       expiredSecrets.sort((a, b) => (b.expiredAt || b.createdAt) - (a.expiredAt || a.createdAt));
 
       return new Response(JSON.stringify({
-        totalSecrets: activeKeys.length,
+        totalSecrets: activeSecrets.length,
         totalViewed:  viewedKeys.length,
-        totalExpired: expiredKeys.length,
+        totalExpired: expiredSecrets.length,
         activeSecrets, viewedSecrets, expiredSecrets,
       }), { headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
     }

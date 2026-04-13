@@ -1,0 +1,4 @@
+/.well-known/security.txt  /security.txt  301
+/swagger.html              /swagger       301
+/humans                    /humans.txt    301
+/robots                    /robots.txt    301

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin
+Disallow: /api/
+Disallow: /view/
+
+# Shh — Secure Secrets
+# There is nothing to index here. Secrets are ephemeral and encrypted.

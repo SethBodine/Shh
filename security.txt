@@ -1,0 +1,28 @@
+# Security Policy — Shh Secrets
+# https://securitytxt.org (RFC 9116)
+
+# How to report a vulnerability:
+# Replace the placeholder below with your actual contact before deploying.
+Contact: mailto:security@example.com
+
+# Where to find this file:
+Canonical: https://your-site.pages.dev/security.txt
+
+# Our security policy and disclosure guidelines:
+Policy: https://your-site.pages.dev/.well-known/security.txt
+
+# We aim to acknowledge reports within 48 hours.
+# Please provide sufficient detail to reproduce the issue.
+
+# Key security properties of this service:
+# - End-to-end encrypted (AES-256-GCM, client-side only)
+# - Zero-knowledge: server never sees plaintext or encryption keys
+# - Keys exist only in URL fragments (never transmitted to server)
+# - One-time or limited-view secrets
+# - Timing-safe admin authentication
+# - No third-party analytics or advertising
+
+Preferred-Languages: en
+
+# This file expires after one year — please check for an updated version.
+Expires: 2027-01-01T00:00:00Z

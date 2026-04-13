@@ -2,12 +2,20 @@ name = "shh-secrets"
 main = "functions/api/[[path]].js"
 compatibility_date = "2024-01-01"
 
-# IMPORTANT: Replace PASTE_YOUR_KV_NAMESPACE_ID_HERE with your actual KV namespace ID
-# Get this from: Cloudflare Dashboard > Workers & Pages > KV > Create namespace
+# IMPORTANT: Replace with your actual KV namespace ID
+# Get from: Cloudflare Dashboard > Workers & Pages > KV > Create namespace
 kv_namespaces = [
   { binding = "SECRETS_KV", id = "5f5530e67cb342028f8f8c30fb443791" }
 ]
 
-# Cron trigger for cleanup (runs every 6 hours)
+# ── Cron trigger ───────────────────────────────────────────────────────────────
+# NOTE: This [triggers] block is used by `wrangler deploy` (standalone Worker).
+# When deployed via Cloudflare Pages (Git integration), cron triggers must be
+# configured separately in the Cloudflare Dashboard:
+#   Workers & Pages → Your Project → Settings → Triggers → Cron Triggers
+# Add:  0 */6 * * *   (every 6 hours)
+#
+# The application also archives expired secrets proactively in the admin/stats
+# endpoint, so the dashboard is functional even without the cron running.
 [triggers]
 crons = ["0 */6 * * *"]
