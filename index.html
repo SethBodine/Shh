@@ -110,10 +110,15 @@
           Attach Files
           <span class="font-normal text-gray-500 text-sm">(max 5 files &middot; 15 MB total)</span>
         </label>
-        <input type="file" id="fileInput" multiple
-          class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-        <!-- Per-file list -->
-        <div id="fileList" class="mt-2 text-sm text-gray-600 space-y-0.5"></div>
+        <!-- Hidden real input — only used to open the OS file picker -->
+        <input type="file" id="fileInput" multiple class="hidden">
+        <!-- Styled trigger button -->
+        <button type="button" id="filePickerBtn"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-left text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors text-sm bg-white">
+          📎 Choose files…
+        </button>
+        <!-- Per-file list with delete buttons -->
+        <div id="fileList" class="mt-2 space-y-1"></div>
         <!-- Total size bar (shown when files are selected) -->
         <div id="fileSizeBar" class="hidden mt-2">
           <div class="flex justify-between text-xs text-gray-500 mb-1">
@@ -623,7 +628,13 @@ console.log('Secret:', secret);</pre>
     const MAX_FILES       = 5;
     const MAX_TOTAL_BYTES = 15 * 1024 * 1024; // 15 MB raw → ~20 MB base64, safe under KV 25 MB limit
 
+    // selectedFiles is the source of truth — fileInput.files is read-only so
+    // we can't remove individual entries from it. Instead we maintain our own
+    // array and use the hidden input only to open the OS picker.
+    let selectedFiles = [];
+
     const fileInput       = document.getElementById('fileInput');
+    const filePickerBtn   = document.getElementById('filePickerBtn');
     const fileList        = document.getElementById('fileList');
     const fileSizeBar     = document.getElementById('fileSizeBar');
     const fileSizeLabel   = document.getElementById('fileSizeLabel');
@@ -631,25 +642,47 @@ console.log('Secret:', secret);</pre>
     const fileSizeBarFill = document.getElementById('fileSizeBarFill');
     const fileSelectError = document.getElementById('fileSelectError');
 
+    // Open OS picker when the styled button is clicked
+    filePickerBtn.addEventListener('click', () => fileInput.click());
+
     function formatBytes(bytes) {
       if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
       return (bytes / 1024).toFixed(1) + ' KB';
     }
 
+    function removeFile(index) {
+      selectedFiles.splice(index, 1);
+      updateFileUI();
+    }
+
     function updateFileUI() {
-      const files     = Array.from(fileInput.files);
-      const count     = files.length;
-      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      const count     = selectedFiles.length;
+      const totalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
       const pct       = Math.min(100, (totalSize / MAX_TOTAL_BYTES) * 100);
       const overCount = count > MAX_FILES;
       const overSize  = totalSize > MAX_TOTAL_BYTES;
 
-      // Per-file list
-      fileList.innerHTML = files.length > 0
-        ? files.map(f => `<div>📎 ${f.name} <span class="text-gray-400">(${formatBytes(f.size)})</span></div>`).join('')
-        : '';
+      // Per-file list with individual delete buttons
+      if (count > 0) {
+        fileList.innerHTML = selectedFiles.map((f, i) => `
+          <div class="flex items-center justify-between py-1 px-2 rounded bg-gray-50 text-sm text-gray-700">
+            <span class="truncate mr-2">📎 <span class="font-medium">${f.name}</span> <span class="text-gray-400">(${formatBytes(f.size)})</span></span>
+            <button type="button" data-idx="${i}"
+              class="remove-file-btn flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors text-lg leading-none"
+              title="Remove file" aria-label="Remove ${f.name}">×</button>
+          </div>`).join('');
+        // Attach remove handlers
+        fileList.querySelectorAll('.remove-file-btn').forEach(btn => {
+          btn.addEventListener('click', () => removeFile(parseInt(btn.dataset.idx)));
+        });
+      } else {
+        fileList.innerHTML = '';
+      }
 
-      if (files.length === 0) {
+      // Update picker button label
+      filePickerBtn.textContent = count > 0 ? `📎 Add more files… (${count}/${MAX_FILES})` : '📎 Choose files…';
+
+      if (count === 0) {
         fileSizeBar.classList.add('hidden');
         fileSelectError.classList.add('hidden');
         fileSelectError.textContent = '';
@@ -658,8 +691,8 @@ console.log('Secret:', secret);</pre>
 
       // Size bar
       fileSizeBar.classList.remove('hidden');
-      fileSizeLabel.textContent  = `${formatBytes(totalSize)} of ${formatBytes(MAX_TOTAL_BYTES)} used`;
-      fileCountLabel.textContent = `${count} / ${MAX_FILES} files`;
+      fileSizeLabel.textContent   = `${formatBytes(totalSize)} of ${formatBytes(MAX_TOTAL_BYTES)} used`;
+      fileCountLabel.textContent  = `${count} / ${MAX_FILES} files`;
       fileSizeBarFill.style.width = pct + '%';
       fileSizeBarFill.style.background = (overCount || overSize) ? '#ef4444' : (pct > 80 ? '#f97316' : '#a855f7');
 
@@ -676,7 +709,17 @@ console.log('Secret:', secret);</pre>
       }
     }
 
-    fileInput.addEventListener('change', updateFileUI);
+    // When the user picks files, merge into selectedFiles (avoid duplicates by name+size)
+    fileInput.addEventListener('change', () => {
+      const picked = Array.from(fileInput.files);
+      for (const f of picked) {
+        const isDupe = selectedFiles.some(e => e.name === f.name && e.size === f.size);
+        if (!isDupe) selectedFiles.push(f);
+      }
+      // Reset the input so picking the same file again is detected
+      fileInput.value = '';
+      updateFileUI();
+    });
 
     // ===================================
     // CREATE SECRET
@@ -695,9 +738,8 @@ console.log('Secret:', secret);</pre>
       if (text.length > 1024) { showError('Secret text exceeds 1KB limit'); return; }
 
       // Hard limits for file attachments (guard against bypassing the change-event checks)
-      const pendingFiles     = Array.from(fileInput.files || []);
-      const pendingTotalSize = pendingFiles.reduce((sum, f) => sum + f.size, 0);
-      if (pendingFiles.length > MAX_FILES) {
+      const pendingTotalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
+      if (selectedFiles.length > MAX_FILES) {
         showError(`Too many files — maximum is ${MAX_FILES}.`); return;
       }
       if (pendingTotalSize > MAX_TOTAL_BYTES) {
@@ -725,19 +767,18 @@ console.log('Secret:', secret);</pre>
 
         // STEP 4: Encrypt files (with progress bar)
         const files = [];
-        const fileInputFiles = Array.from(fileInput.files || []);
         const fileUploadVisible = !document.getElementById('fileUploadSection').classList.contains('hidden');
 
-        if (fileUploadVisible && fileInputFiles.length > 0) {
+        if (fileUploadVisible && selectedFiles.length > 0) {
           const progressContainer = document.getElementById('fileProgress');
           const progressBar       = document.getElementById('fileProgressBar');
           const progressText      = document.getElementById('fileProgressText');
           progressContainer.classList.remove('hidden');
 
-          for (let i = 0; i < fileInputFiles.length; i++) {
-            const file = fileInputFiles[i];
-            progressText.textContent = `Encrypting file ${i + 1} of ${fileInputFiles.length}: ${file.name}`;
-            progressBar.style.width  = `${Math.round((i / fileInputFiles.length) * 100)}%`;
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            progressText.textContent = `Encrypting file ${i + 1} of ${selectedFiles.length}: ${file.name}`;
+            progressBar.style.width  = `${Math.round((i / selectedFiles.length) * 100)}%`;
 
             const arrayBuffer      = await new Promise((res, rej) => {
               const r = new FileReader();
@@ -750,7 +791,7 @@ console.log('Secret:', secret);</pre>
           }
 
           progressBar.style.width  = '100%';
-          progressText.textContent = `${fileInputFiles.length} file(s) encrypted ✓`;
+          progressText.textContent = `${selectedFiles.length} file(s) encrypted ✓`;
           setTimeout(() => progressContainer.classList.add('hidden'), 1500);
         }
 
@@ -825,8 +866,10 @@ console.log('Secret:', secret);</pre>
       document.getElementById('passphraseInput').disabled = false;
       document.getElementById('passphraseInput').value = '';
       if (!document.getElementById('fileUploadSection').classList.contains('hidden')) {
+        selectedFiles = [];
         fileInput.value = '';
-        fileList.innerHTML = '';
+        filePickerBtn.textContent = '📎 Choose files…';
+        updateFileUI();
       }
       successMessage.classList.add('hidden');
       createBtn.classList.remove('hidden');
