@@ -106,10 +106,26 @@
 
       <!-- File Upload (shown when enabled by server) -->
       <div id="fileUploadSection" class="mb-4 hidden">
-        <label class="block text-gray-700 font-medium mb-2">Attach Files (Optional, Max 10MB each)</label>
+        <label class="block text-gray-700 font-medium mb-2">
+          Attach Files
+          <span class="font-normal text-gray-500 text-sm">(max 5 files &middot; 15 MB total)</span>
+        </label>
         <input type="file" id="fileInput" multiple
           class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-        <div id="fileList" class="mt-2 text-sm text-gray-600"></div>
+        <!-- Per-file list -->
+        <div id="fileList" class="mt-2 text-sm text-gray-600 space-y-0.5"></div>
+        <!-- Total size bar (shown when files are selected) -->
+        <div id="fileSizeBar" class="hidden mt-2">
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span id="fileSizeLabel">0 MB of 15 MB used</span>
+            <span id="fileCountLabel">0 / 5 files</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-1.5">
+            <div id="fileSizeBarFill" class="h-1.5 rounded-full transition-all duration-200" style="width:0%;background:#a855f7"></div>
+          </div>
+        </div>
+        <!-- Inline validation error for file selection -->
+        <div id="fileSelectError" class="hidden mt-1 text-xs font-medium text-red-600"></div>
         <!-- File encryption progress -->
         <div id="fileProgress" class="hidden mt-3">
           <div class="text-sm text-gray-600 mb-1" id="fileProgressText">Encrypting files...</div>
@@ -602,16 +618,65 @@ console.log('Secret:', secret);</pre>
     checkFeatures();
 
     // ===================================
-    // FILE INPUT DISPLAY
+    // FILE INPUT DISPLAY + VALIDATION
     // ===================================
-    const fileInput = document.getElementById('fileInput');
-    const fileList  = document.getElementById('fileList');
-    fileInput.addEventListener('change', () => {
-      const files = Array.from(fileInput.files);
+    const MAX_FILES       = 5;
+    const MAX_TOTAL_BYTES = 15 * 1024 * 1024; // 15 MB raw → ~20 MB base64, safe under KV 25 MB limit
+
+    const fileInput       = document.getElementById('fileInput');
+    const fileList        = document.getElementById('fileList');
+    const fileSizeBar     = document.getElementById('fileSizeBar');
+    const fileSizeLabel   = document.getElementById('fileSizeLabel');
+    const fileCountLabel  = document.getElementById('fileCountLabel');
+    const fileSizeBarFill = document.getElementById('fileSizeBarFill');
+    const fileSelectError = document.getElementById('fileSelectError');
+
+    function formatBytes(bytes) {
+      if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
+
+    function updateFileUI() {
+      const files     = Array.from(fileInput.files);
+      const count     = files.length;
+      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      const pct       = Math.min(100, (totalSize / MAX_TOTAL_BYTES) * 100);
+      const overCount = count > MAX_FILES;
+      const overSize  = totalSize > MAX_TOTAL_BYTES;
+
+      // Per-file list
       fileList.innerHTML = files.length > 0
-        ? files.map(f => `<div>📎 ${f.name} (${(f.size / 1024).toFixed(1)} KB)</div>`).join('')
+        ? files.map(f => `<div>📎 ${f.name} <span class="text-gray-400">(${formatBytes(f.size)})</span></div>`).join('')
         : '';
-    });
+
+      if (files.length === 0) {
+        fileSizeBar.classList.add('hidden');
+        fileSelectError.classList.add('hidden');
+        fileSelectError.textContent = '';
+        return;
+      }
+
+      // Size bar
+      fileSizeBar.classList.remove('hidden');
+      fileSizeLabel.textContent  = `${formatBytes(totalSize)} of ${formatBytes(MAX_TOTAL_BYTES)} used`;
+      fileCountLabel.textContent = `${count} / ${MAX_FILES} files`;
+      fileSizeBarFill.style.width = pct + '%';
+      fileSizeBarFill.style.background = (overCount || overSize) ? '#ef4444' : (pct > 80 ? '#f97316' : '#a855f7');
+
+      // Inline errors
+      if (overCount) {
+        fileSelectError.textContent = `Too many files — maximum is ${MAX_FILES}. Please remove ${count - MAX_FILES} file(s).`;
+        fileSelectError.classList.remove('hidden');
+      } else if (overSize) {
+        fileSelectError.textContent = `Total size ${formatBytes(totalSize)} exceeds the ${formatBytes(MAX_TOTAL_BYTES)} limit. Please remove some files.`;
+        fileSelectError.classList.remove('hidden');
+      } else {
+        fileSelectError.classList.add('hidden');
+        fileSelectError.textContent = '';
+      }
+    }
+
+    fileInput.addEventListener('change', updateFileUI);
 
     // ===================================
     // CREATE SECRET
@@ -628,6 +693,16 @@ console.log('Secret:', secret);</pre>
 
       if (!text) { showError('Please enter a secret message'); return; }
       if (text.length > 1024) { showError('Secret text exceeds 1KB limit'); return; }
+
+      // Hard limits for file attachments (guard against bypassing the change-event checks)
+      const pendingFiles     = Array.from(fileInput.files || []);
+      const pendingTotalSize = pendingFiles.reduce((sum, f) => sum + f.size, 0);
+      if (pendingFiles.length > MAX_FILES) {
+        showError(`Too many files — maximum is ${MAX_FILES}.`); return;
+      }
+      if (pendingTotalSize > MAX_TOTAL_BYTES) {
+        showError(`Total file size ${(pendingTotalSize / 1024 / 1024).toFixed(1)} MB exceeds the ${(MAX_TOTAL_BYTES / 1024 / 1024).toFixed(0)} MB limit.`); return;
+      }
 
       createBtn.disabled = true;
       createBtn.textContent = 'Encrypting...';
