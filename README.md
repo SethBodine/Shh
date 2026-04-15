@@ -59,7 +59,6 @@ shh-secrets/
 ├── swagger.html                # Swagger UI page
 ├── swagger                     # Swagger UI bundle (no extension — served as HTML)
 ├── openapi.yaml                # OpenAPI 3.0 spec
-├── _routes.json                # Cloudflare Pages routing (include/exclude rules)
 ├── _headers                    # HTTP security headers (CSP, cache control)
 ├── _redirects                  # Cloudflare Pages redirect rules (/.well-known etc.)
 ├── wrangler.toml               # Worker/Pages configuration + KV binding + cron

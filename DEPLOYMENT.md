@@ -24,7 +24,6 @@ shh-secrets/
 ├── swagger.html
 ├── swagger
 ├── openapi.yaml
-├── _routes.json
 ├── _headers
 ├── _redirects
 ├── wrangler.toml
