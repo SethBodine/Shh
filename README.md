@@ -1,5 +1,7 @@
 # 🤫 Shh — Secure One-Time Secret Sharing
 
+[![Source on GitHub](https://img.shields.io/badge/source-GitHub-181717?logo=github)](https://github.com/SethBodine/Shh)
+
 A zero-knowledge, end-to-end encrypted secret sharing service built on Cloudflare's edge network. Share sensitive information with self-destructing links that are encrypted entirely in the browser — the server never sees plaintext.
 
 ---
@@ -12,7 +14,7 @@ A zero-knowledge, end-to-end encrypted secret sharing service built on Cloudflar
 | **Self-Destructing Links** | Secrets are deleted on the last allowed view or at TTL expiry. |
 | **Configurable Views** | Set 1–10 allowed views per secret (default: 1). |
 | **Optional Passphrase** | Add a second factor: key is PBKDF2-derived and AES-KW-wrapped, entirely client-side. |
-| **File Attachments** | Attach up to 10MB files — also encrypted client-side before upload. |
+| **File Attachments** | Attach up to 5 files (15 MB total) — encrypted client-side before upload. |
 | **Customisable TTL** | 1, 3, 6, 12, or 24 hours. |
 | **Expiry Countdown** | View page shows live time-to-expiry before revealing the secret. |
 | **Themes & Dark Mode** | Six colour themes, auto dark/light based on time of day. |
@@ -131,6 +133,10 @@ const FEATURES = {
   MAX_VIEWS:            10,            // Maximum views settable by users
   DISCORD_WEBHOOK_ENABLED: true,
 };
+
+// Client-side limits (index.html)
+// MAX_FILES       = 5          — max attachments per secret
+// MAX_TOTAL_BYTES = 15 MB raw  — ~20 MB base64-encoded, safely under KV 25 MB value limit
 ```
 
 ### Environment Variables (Cloudflare Pages → Settings → Environment Variables)
@@ -226,7 +232,18 @@ All endpoints return JSON. CORS is enabled for all origins.
 
 ## 📝 Changelog
 
-### v3.0.0 (current)
+### v3.2.0 (current)
+- **File attachment UX**: per-file × delete buttons; styled picker button; duplicate-file deduplication
+- **File upload hard limits**: max 5 files, 15 MB total (enforced client-side and pre-submit)
+- **Bug fix**: `/admin` 308 redirect loop resolved — `ASSETS.fetch` no longer forwards the original request object
+- **Bug fix**: file uploads over KV 25 MB limit now show a clear error instead of Internal Server Error
+
+### v3.1.0
+- **Archived expiry**: secrets that pass their TTL are moved to `expired:` archive rather than silently deleted
+- **Proactive expiry scan**: `admin/stats` and request-time checks archive expired secrets without requiring cron
+- **Admin portal**: expired secrets visible in dedicated archive tab
+
+### v3.0.0
 - **Multi-view secrets**: settable 1–10 views per secret
 - **Passphrase protection**: PBKDF2 + AES-KW key wrapping, fully client-side
 - **File upload progress bar**: shows per-file encryption progress
@@ -256,3 +273,5 @@ MIT — free to use for any purpose.
 Built with [Cloudflare Workers](https://workers.cloudflare.com/), [Cloudflare KV](https://developers.cloudflare.com/kv/), [Cloudflare Pages](https://pages.cloudflare.com/), and [Tailwind CSS](https://tailwindcss.com/).
 
 Architecture and implementation by Claude (Anthropic). Inspired by [OneTimeSecret](https://onetimesecret.com/).
+
+Source code: [https://github.com/SethBodine/Shh](https://github.com/SethBodine/Shh)

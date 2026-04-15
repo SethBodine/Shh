@@ -1,5 +1,7 @@
 # 🚀 Deployment Guide — Shh Secrets
 
+Source: [https://github.com/SethBodine/Shh](https://github.com/SethBodine/Shh)
+
 This guide deploys Shh using **Cloudflare's native GitHub integration** (OAuth), which is more secure than GitHub Actions because no Cloudflare API token is ever stored in GitHub.
 
 ---
@@ -42,18 +44,22 @@ shh-secrets/
 ### STEP 1 — Create GitHub Repository
 
 ```bash
+# Option A — fork the repo on GitHub then clone your fork
+git clone https://github.com/SethBodine/Shh shh-secrets && cd shh-secrets
+
+# Option B — start fresh
 mkdir shh-secrets && cd shh-secrets
 git init
 mkdir -p functions/api functions/view
 ```
 
-Copy all project files into their correct paths, then:
+Copy all project files into their correct paths (if Option B), then:
 
 ```bash
 git add .
 git commit -m "Initial commit"
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/shh-secrets.git
+git remote add origin https://github.com/YOUR_USERNAME/Shh.git
 git push -u origin main
 ```
 
