@@ -56,18 +56,25 @@ shh-secrets/
 ├── index.html                  # Create secret page
 ├── view.html                   # View secret page (no-store cache)
 ├── admin.html                  # Admin portal
-├── _routes.json                # Cloudflare Pages routing
+├── swagger.html                # Swagger UI page
+├── swagger                     # Swagger UI bundle (no extension — served as HTML)
+├── openapi.yaml                # OpenAPI 3.0 spec
+├── _routes.json                # Cloudflare Pages routing (include/exclude rules)
 ├── _headers                    # HTTP security headers (CSP, cache control)
-├── wrangler.toml               # Worker configuration
+├── _redirects                  # Cloudflare Pages redirect rules (/.well-known etc.)
+├── wrangler.toml               # Worker/Pages configuration + KV binding + cron
+├── robots.txt                  # Crawler directives
+├── humans.txt                  # Human-readable credits
+├── security.txt                # RFC 9116 security disclosure policy
 ├── README.md
 ├── DEPLOYMENT.md
 └── functions/
-    ├── _security.js            # Shared security primitives
-    ├── admin.js                # Serves admin.html
+    ├── _security.js            # Shared security primitives (rate limiting, validation)
+    ├── admin.js                # Serves admin.html at /admin
     ├── api/
-    │   └── [[path]].js         # API catch-all worker
+    │   └── [[path]].js         # API catch-all worker (all /api/* routes)
     └── view/
-        └── [id].js             # Dynamic /view/{id} route → view.html
+        └── [id].js             # Dynamic /view/{id} route → serves view.html
 ```
 
 ---

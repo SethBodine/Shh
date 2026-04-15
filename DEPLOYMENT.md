@@ -21,9 +21,16 @@ shh-secrets/
 ├── index.html
 ├── view.html
 ├── admin.html
+├── swagger.html
+├── swagger
+├── openapi.yaml
 ├── _routes.json
 ├── _headers
+├── _redirects
 ├── wrangler.toml
+├── robots.txt
+├── humans.txt
+├── security.txt
 ├── README.md
 ├── DEPLOYMENT.md
 └── functions/

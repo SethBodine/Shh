@@ -668,7 +668,15 @@ console.log('Secret:', secret);</pre>
 
       // Per-file list with individual delete buttons
       if (count > 0) {
-        fileList.innerHTML = selectedFiles.map((f, i) => `
+        const removeAllBtn = count > 1
+          ? `<div class="flex justify-end mb-1">
+               <button type="button" id="removeAllBtn"
+                 class="text-xs text-red-400 hover:text-red-600 transition-colors">
+                 ✕ Remove all
+               </button>
+             </div>`
+          : '';
+        fileList.innerHTML = removeAllBtn + selectedFiles.map((f, i) => `
           <div class="flex items-center justify-between py-1 px-2 rounded bg-gray-50 text-sm text-gray-700">
             <span class="truncate mr-2">📎 <span class="font-medium">${f.name}</span> <span class="text-gray-400">(${formatBytes(f.size)})</span></span>
             <button type="button" data-idx="${i}"
@@ -679,6 +687,15 @@ console.log('Secret:', secret);</pre>
         fileList.querySelectorAll('.remove-file-btn').forEach(btn => {
           btn.addEventListener('click', () => removeFile(parseInt(btn.dataset.idx)));
         });
+        // Attach remove-all handler
+        const removeAllEl = document.getElementById('removeAllBtn');
+        if (removeAllEl) {
+          removeAllEl.addEventListener('click', () => {
+            selectedFiles = [];
+            fileInput.value = '';
+            updateFileUI();
+          });
+        }
       } else {
         fileList.innerHTML = '';
       }
