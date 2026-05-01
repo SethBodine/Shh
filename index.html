@@ -166,7 +166,7 @@
           class="flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-800 transition">
           <span class="chevron text-xs">▼</span>
           Advanced options
-          <span id="advancedSummary" class="text-gray-400 font-normal ml-1">· expires in 12h · 1 view</span>
+          <span id="advancedSummary" class="text-gray-400 font-normal ml-1">· 24h · 1 view · no passphrase · no files</span>
         </button>
 
         <div id="advancedContent" class="mt-4 space-y-4">
@@ -178,8 +178,8 @@
                 <option value="1">1 hour</option>
                 <option value="3">3 hours</option>
                 <option value="6">6 hours</option>
-                <option value="12" selected>12 hours</option>
-                <option value="24">24 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24" selected>24 hours</option>
               </select>
             </div>
             <div>
@@ -677,7 +677,7 @@ console.log('Secret:', secret);</pre>
     window.addEventListener('DOMContentLoaded', () => {
       secretText.value = '';
       charCount.textContent = '0';
-      document.getElementById('ttlSelect').value = '12';
+      document.getElementById('ttlSelect').value = '24';
       document.getElementById('maxViewsSelect').value = '1';
       document.getElementById('passphraseInput').value = '';
     });
@@ -693,10 +693,22 @@ console.log('Secret:', secret);</pre>
       const ttl      = document.getElementById('ttlSelect');
       const views    = document.getElementById('maxViewsSelect');
       const pp       = document.getElementById('passphraseInput').value;
-      const ttlText  = ttl.options[ttl.selectedIndex].text;
+      const fileCount = selectedFiles ? selectedFiles.length : 0;
+
+      // Expiry — shorten "hours" to "h" to keep the summary compact
+      const ttlVal  = parseInt(ttl.value);
+      const ttlText = ttlVal === 1 ? '1h' : `${ttlVal}h`;
+
+      // Views
       const viewText = views.value === '1' ? '1 view' : `${views.value} views`;
-      const ppText   = pp ? ' · 🔑 passphrase' : '';
-      advancedSummary.textContent = `· ${ttlText} · ${viewText}${ppText}`;
+
+      // Passphrase — always shown so users know the slot exists
+      const ppText = pp ? '🔑 passphrase set' : 'no passphrase';
+
+      // Files — always shown
+      const fileText = fileCount > 0 ? `📎 ${fileCount} file${fileCount > 1 ? 's' : ''}` : 'no files';
+
+      advancedSummary.textContent = `· ${ttlText} · ${viewText} · ${ppText} · ${fileText}`;
     }
 
     advancedToggle.addEventListener('click', () => {
@@ -889,6 +901,9 @@ console.log('Secret:', secret);</pre>
         fileSelectError.classList.add('hidden');
         fileSelectError.textContent = '';
       }
+
+      // Keep the collapsed summary in sync with file count
+      updateAdvancedSummary();
     }
 
     // When the user picks files, merge into selectedFiles (avoid duplicates by name+size)
@@ -1053,7 +1068,7 @@ console.log('Secret:', secret);</pre>
       charBar.style.width = '0%';
       charHint.textContent = '';
       document.getElementById('ttlSelect').disabled = false;
-      document.getElementById('ttlSelect').value = '12';
+      document.getElementById('ttlSelect').value = '24';
       document.getElementById('maxViewsSelect').disabled = false;
       document.getElementById('maxViewsSelect').value = '1';
       document.getElementById('passphraseInput').disabled = false;
