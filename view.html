@@ -200,13 +200,17 @@
 
     // ===================================
     // PASSPHRASE KEY UNWRAPPING
+    // Algorithm: PBKDF2-HMAC-SHA-512 at 210,000 iterations.
+    // Must match the parameters used during wrapping in index.html.
+    // OWASP (2023) minimum for SHA-512. SHA-512 preferred over SHA-256 at
+    // equivalent security because it is faster on 64-bit ARM mobile CPUs.
     // ===================================
     async function deriveUnwrappingKey(passphrase, salt) {
       const keyMaterial = await crypto.subtle.importKey(
         'raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']
       );
       return await crypto.subtle.deriveKey(
-        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        { name: 'PBKDF2', salt, iterations: 210000, hash: 'SHA-512' },
         keyMaterial,
         { name: 'AES-KW', length: 256 },
         false,

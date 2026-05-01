@@ -193,6 +193,74 @@ export function getClientIP(request) {
 /**
  * Validate admin authentication with timing-safe comparison
  */
+// ─── Admin Brute-Force Lockout ────────────────────────────────────────────────
+
+const ADMIN_LOCKOUT_MAX_ATTEMPTS = 5;
+const ADMIN_LOCKOUT_WINDOW_SECS  = 30 * 60; // 30 minutes
+
+/**
+ * KV key used to track failed admin login attempts per IP.
+ * Kept separate from rate-limit keys so they don't interfere.
+ */
+function adminLockoutKey(ip) {
+  return `admin_fail:${ip}`;
+}
+
+/**
+ * Check whether an IP is currently locked out from admin access.
+ * Returns { locked: true, remainingSecs } or { locked: false }.
+ */
+export async function checkAdminLockout(env, ip) {
+  if (!env.SECRETS_KV) return { locked: false };
+  try {
+    const raw = await env.SECRETS_KV.get(adminLockoutKey(ip));
+    if (!raw) return { locked: false };
+    const record = JSON.parse(raw);
+    if (record.attempts < ADMIN_LOCKOUT_MAX_ATTEMPTS) return { locked: false };
+    const remainingSecs = Math.max(0, Math.ceil((record.lockedUntil - Date.now()) / 1000));
+    if (remainingSecs <= 0) {
+      // Lockout expired — clean up
+      await env.SECRETS_KV.delete(adminLockoutKey(ip));
+      return { locked: false };
+    }
+    return { locked: true, remainingSecs };
+  } catch {
+    return { locked: false }; // fail open so a KV error doesn't permanently lock admins out
+  }
+}
+
+/**
+ * Record a failed admin token attempt for the given IP.
+ * After ADMIN_LOCKOUT_MAX_ATTEMPTS failures, the IP is locked for ADMIN_LOCKOUT_WINDOW_SECS.
+ */
+export async function recordAdminFailure(env, ip) {
+  if (!env.SECRETS_KV) return;
+  try {
+    const key = adminLockoutKey(ip);
+    const raw = await env.SECRETS_KV.get(key);
+    const existing = raw ? JSON.parse(raw) : { attempts: 0, lockedUntil: null };
+    const attempts = existing.attempts + 1;
+    const lockedUntil = attempts >= ADMIN_LOCKOUT_MAX_ATTEMPTS
+      ? Date.now() + ADMIN_LOCKOUT_WINDOW_SECS * 1000
+      : existing.lockedUntil;
+    await env.SECRETS_KV.put(
+      key,
+      JSON.stringify({ attempts, lockedUntil }),
+      { expirationTtl: ADMIN_LOCKOUT_WINDOW_SECS }
+    );
+  } catch { /* non-fatal */ }
+}
+
+/**
+ * Clear the failure record for an IP after a successful admin login.
+ */
+export async function clearAdminFailures(env, ip) {
+  if (!env.SECRETS_KV) return;
+  try {
+    await env.SECRETS_KV.delete(adminLockoutKey(ip));
+  } catch { /* non-fatal */ }
+}
+
 export function validateAdminToken(request, env, headerName = 'X-Admin-Token') {
   const providedToken = request.headers.get(headerName);
   const expectedToken = env.ADMIN_TOKEN;

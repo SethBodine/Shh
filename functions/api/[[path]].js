@@ -7,6 +7,9 @@ import {
   applySecurityHeaders,
   getCORSHeaders,
   validateAdminToken,
+  checkAdminLockout,
+  recordAdminFailure,
+  clearAdminFailures,
   isValidUUID,
   isValidTTL,
   validateEncryptedData,
@@ -268,10 +271,23 @@ export async function onRequest(context) {
       });
     }
 
+    // ── ADMIN ROUTES — shared lockout + auth gate ─────────────────────────────
+    // All paths starting with "admin/" go through this gate first.
+    // On 5 consecutive failures from the same IP, that IP is locked out for 30 min.
+    if (path.startsWith('admin/') || path === 'admin') {
+      const lockout = await checkAdminLockout(env, clientIP);
+      if (lockout.locked)
+        return new Response(JSON.stringify({ error: 'Too many failed attempts. Try again later.', retryAfterSecs: lockout.remainingSecs }), { status: 429, headers: applySecurityHeaders({ 'Content-Type': 'application/json', 'Retry-After': String(lockout.remainingSecs), ...corsHeaders }) });
+      if (!validateAdminToken(request, env)) {
+        await recordAdminFailure(env, clientIP);
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
+      }
+      // Successful auth — reset failure counter for this IP
+      await clearAdminFailures(env, clientIP);
+    }
+
     // ── ADMIN: GET STATS ──────────────────────────────────────────────────────
     if (request.method === 'GET' && path === 'admin/stats') {
-      if (!validateAdminToken(request, env))
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
 
       const [activeKeys, viewedKeys, expiredKeys] = await Promise.all([
         listAllKVKeys(env.SECRETS_KV, 'secret:'),
@@ -338,8 +354,6 @@ export async function onRequest(context) {
 
     // ── ADMIN: FORCE-EXPIRE A SINGLE ACTIVE SECRET ────────────────────────────
     if (request.method === 'POST' && path.startsWith('admin/secret/') && path.endsWith('/expire')) {
-      if (!validateAdminToken(request, env))
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       const secretId = path.split('/')[2];
       if (!isValidUUID(secretId))
         return new Response(JSON.stringify({ error: 'Invalid secret ID format' }), { status: 400, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
@@ -356,8 +370,6 @@ export async function onRequest(context) {
 
     // ── ADMIN: DELETE SINGLE SECRET (active, viewed, or expired) ─────────────
     if (request.method === 'DELETE' && path.startsWith('admin/secret/')) {
-      if (!validateAdminToken(request, env))
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       const secretId = path.split('/')[2];
       if (!isValidUUID(secretId))
         return new Response(JSON.stringify({ error: 'Invalid secret ID format' }), { status: 400, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
@@ -373,8 +385,6 @@ export async function onRequest(context) {
 
     // ── ADMIN: PURGE ALL ACTIVE SECRETS ──────────────────────────────────────
     if (request.method === 'POST' && path === 'admin/purge') {
-      if (!validateAdminToken(request, env))
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       if (!await checkRateLimit(env, 'admin', clientIP, RATE_LIMITS.ADMIN_ACTION_PER_HOUR))
         return new Response(JSON.stringify({ error: 'Rate limit exceeded for admin actions', retryAfter: 3600 }), { status: 429, headers: applySecurityHeaders({ 'Content-Type': 'application/json', 'Retry-After': '3600', ...corsHeaders }) });
       const keys = await listAllKVKeys(env.SECRETS_KV, 'secret:');
@@ -385,8 +395,6 @@ export async function onRequest(context) {
 
     // ── ADMIN: DELETE ALL ARCHIVED (viewed + expired) ─────────────────────────
     if (request.method === 'POST' && path === 'admin/purge-archived') {
-      if (!validateAdminToken(request, env))
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       const [viewedKeys, expiredKeys] = await Promise.all([
         listAllKVKeys(env.SECRETS_KV, 'viewed:'),
         listAllKVKeys(env.SECRETS_KV, 'expired:'),
@@ -398,8 +406,6 @@ export async function onRequest(context) {
 
     // ── ADMIN: DELETE ALL VIEWED ONLY ─────────────────────────────────────────
     if (request.method === 'POST' && path === 'admin/purge-viewed') {
-      if (!validateAdminToken(request, env))
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       const keys = await listAllKVKeys(env.SECRETS_KV, 'viewed:');
       await Promise.all(keys.map(k => env.SECRETS_KV.delete(k.name)));
       return new Response(JSON.stringify({ purged: keys.length }), { headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
@@ -407,8 +413,6 @@ export async function onRequest(context) {
 
     // ── ADMIN: DELETE ALL EXPIRED ONLY ────────────────────────────────────────
     if (request.method === 'POST' && path === 'admin/purge-expired') {
-      if (!validateAdminToken(request, env))
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
       const keys = await listAllKVKeys(env.SECRETS_KV, 'expired:');
       await Promise.all(keys.map(k => env.SECRETS_KV.delete(k.name)));
       return new Response(JSON.stringify({ purged: keys.length }), { headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });

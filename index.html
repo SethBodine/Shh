@@ -370,7 +370,7 @@ echo "Share: https://your-site.pages.dev/view/$ID#$KEY_B64"</pre>
           <ul class="list-disc list-inside text-blue-700 space-y-1 text-xs">
             <li>All secrets encrypted client-side with AES-256-GCM before leaving your browser</li>
             <li>Encryption key travels in the URL fragment (<code>#key</code>) — never sent to the server</li>
-            <li>Optional passphrase: key is PBKDF2-derived and wrapped via AES-KW, entirely client-side</li>
+            <li>Optional passphrase: key is PBKDF2-HMAC-SHA-512 derived (210,000 iterations) and wrapped via AES-KW, entirely client-side</li>
             <li>Server stores only ciphertext — zero-knowledge architecture</li>
             <li>Secrets destroyed on last view (or at TTL expiry)</li>
             <li>Admin token comparison is timing-safe (no length-leak side-channel)</li>
@@ -478,13 +478,19 @@ console.log('Secret:', secret);</pre>
     // PASSPHRASE KEY WRAPPING (AES-KW via PBKDF2)
     // The raw AES key is wrapped with a key derived from the passphrase.
     // The passphrase + salt travel in the URL fragment — never to the server.
+    //
+    // Algorithm: PBKDF2-HMAC-SHA-512 at 210,000 iterations.
+    // OWASP (2023) recommends 210,000 as the minimum for SHA-512.
+    // SHA-512 is preferred over SHA-256 at equivalent OWASP compliance because
+    // it runs faster on 64-bit ARM (all modern mobile CPUs) — meaning we reach
+    // the same security bar with lower UX impact on mobile devices.
     // ===================================
     async function deriveWrappingKey(passphrase, salt) {
       const keyMaterial = await crypto.subtle.importKey(
         'raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']
       );
       return await crypto.subtle.deriveKey(
-        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        { name: 'PBKDF2', salt, iterations: 210000, hash: 'SHA-512' },
         keyMaterial,
         { name: 'AES-KW', length: 256 },
         false,
