@@ -8,44 +8,128 @@
   <style>
     :root { --gradient-start: #667eea; --gradient-end: #764ba2; }
     .gradient-bg { background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); transition: background 0.3s ease; }
-    .fade-in { animation: fadeIn 0.3s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    body.dark-mode { background-color: #1a1a2e; }
-    body.dark-mode .bg-white { background-color: #16213e; color: #e4e4e7; }
+    .fade-in { animation: fadeIn 0.35s ease-out both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Dark mode */
+    body.dark-mode { background-color: #111827; }
+    body.dark-mode .bg-white { background-color: #1f2937; color: #f3f4f6; }
+    body.dark-mode .text-gray-800 { color: #f3f4f6; }
     body.dark-mode .text-gray-700 { color: #d1d5db; }
     body.dark-mode .text-gray-600 { color: #9ca3af; }
     body.dark-mode .text-gray-500 { color: #6b7280; }
     body.dark-mode .border-gray-300 { border-color: #374151; }
-    body.dark-mode input, body.dark-mode textarea, body.dark-mode select { background-color: #0f3460; color: #e4e4e7; border-color: #374151; }
-    body.dark-mode .bg-gray-50 { background-color: #1a1a2e; }
-    .theme-btn { cursor: pointer; transition: transform 0.2s; }
-    .theme-btn:hover { transform: scale(1.1); }
+    body.dark-mode .border-gray-200 { border-color: #374151; }
+    body.dark-mode input, body.dark-mode textarea, body.dark-mode select { background-color: #111827; color: #f3f4f6; border-color: #374151; }
+    body.dark-mode .bg-gray-50 { background-color: #111827; }
+    body.dark-mode .bg-gray-100 { background-color: #1f2937; }
+    body.dark-mode .border-t { border-color: #374151; }
+    body.dark-mode .shadow-md { box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+
+    /* Settings panel */
+    .settings-btn { cursor: pointer; transition: transform 0.2s, opacity 0.2s; }
+    .settings-btn:hover { transform: rotate(30deg); opacity: 0.9; }
+    #settingsPanel {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      padding: 16px; min-width: 220px; z-index: 100;
+      animation: fadeIn 0.2s ease-out;
+    }
+    body.dark-mode #settingsPanel { background: #1f2937; }
+    #settingsPanel label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 6px; }
+    body.dark-mode #settingsPanel label { color: #9ca3af; }
+
+    /* Advanced options */
+    #advancedToggle { cursor: pointer; user-select: none; }
+    #advancedToggle .chevron { display: inline-block; transition: transform 0.2s ease; }
+    #advancedToggle.open .chevron { transform: rotate(180deg); }
+    #advancedContent {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.3s ease, opacity 0.2s ease;
+      opacity: 0;
+    }
+    #advancedContent.open { max-height: 600px; opacity: 1; }
+
+    /* Character counter bar */
+    #charBar { height: 3px; border-radius: 2px; transition: width 0.2s ease, background-color 0.3s ease; }
+
+    /* Progress */
     .progress-bar-fill { transition: width 0.4s ease; }
-    @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes blink { 0%,80%,100% { opacity:0 } 40% { opacity:1 } }
     .dot { display:inline-block; animation: blink 1.4s infinite both; }
     .dot:nth-child(2) { animation-delay:.2s; }
     .dot:nth-child(3) { animation-delay:.4s; }
+
+    /* Success state link box */
+    #successMessage .link-box {
+      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+      border: 1.5px solid #86efac;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    body.dark-mode #successMessage .link-box { background: #14532d; border-color: #166534; }
+    #secretLink {
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+      background: white;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: #166534;
+      width: 100%;
+      margin-bottom: 10px;
+      resize: none;
+      min-height: 64px;
+      line-height: 1.5;
+    }
+    body.dark-mode #secretLink { background: #052e16; color: #4ade80; border-color: #166534; }
+    #copyBtn {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      background: #16a34a;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    #copyBtn:hover { background: #15803d; }
+    #copyBtn:active { transform: scale(0.98); }
+    #copyBtn.copied { background: #15803d; }
+
+    /* Two-col layout for tablet+ selects */
+    @media (min-width: 640px) {
+      .selects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-  <header class="gradient-bg text-white py-6 shadow-lg">
+  <header class="gradient-bg text-white py-5 shadow-lg">
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold"><a href="/" class="hover:opacity-80 transition">🤫 Shh - Secure Secrets</a></h1>
-          <p class="text-purple-100 mt-1">Share secrets securely with self-destructing links</p>
+          <h1 class="text-3xl font-bold"><a href="/" class="hover:opacity-80 transition">🤫 Shh</a></h1>
+          <p class="text-purple-100 text-sm mt-0.5">Encrypted self-destructing secrets</p>
         </div>
-        <div class="flex items-center gap-3">
-          <select id="themeSelect" class="px-3 py-2 rounded bg-white/20 text-white border border-white/30 text-sm cursor-pointer hover:bg-white/30 transition">
-            <option value="purple" class="bg-gray-800 text-white">Purple</option>
-            <option value="blue"   class="bg-gray-800 text-white">Ocean Blue</option>
-            <option value="green"  class="bg-gray-800 text-white">Forest Green</option>
-            <option value="orange" class="bg-gray-800 text-white">Sunset Orange</option>
-            <option value="pink"   class="bg-gray-800 text-white">Sakura Pink</option>
-            <option value="teal"   class="bg-gray-800 text-white">Teal Wave</option>
-          </select>
-          <button id="modeToggle" class="theme-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30">🌙</button>
+        <!-- Settings cog — replaces the old visible dropdowns -->
+        <div class="relative">
+          <button id="settingsBtn" class="settings-btn text-2xl bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center border border-white/30" aria-label="Settings">⚙️</button>
+          <div id="settingsPanel" class="hidden">
+            <label>Theme</label>
+            <select id="themeSelect" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 mb-3 focus:outline-none focus:ring-2 focus:ring-purple-400">
+              <option value="purple">Purple</option>
+              <option value="blue">Ocean Blue</option>
+              <option value="green">Forest Green</option>
+              <option value="orange">Sunset Orange</option>
+              <option value="pink">Sakura Pink</option>
+              <option value="teal">Teal Wave</option>
+            </select>
+            <label>Appearance</label>
+            <button id="modeToggle" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 text-left hover:bg-gray-50 transition">🌙 Dark mode</button>
+          </div>
         </div>
       </div>
     </div>
@@ -54,127 +138,135 @@
   <div class="container mx-auto px-4 py-8 max-w-4xl">
 
     <!-- Create Secret Form -->
-    <div id="createForm" class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
-      <h2 class="text-2xl font-semibold mb-4">Create a Secret</h2>
+    <div id="createForm" class="bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-1">Create a Secret</h2>
+      <p class="text-sm text-gray-500 mb-5">Encrypted in your browser — the server never sees it.</p>
 
-      <!-- Secret Text -->
-      <div class="mb-4">
-        <label class="block text-gray-700 font-medium mb-2">Secret Text (Max 1KB)</label>
+      <!-- Secret Text — primary, prominent -->
+      <div class="mb-5">
+        <label class="block text-gray-700 font-semibold mb-2" for="secretText">Your secret message</label>
         <textarea id="secretText" rows="6"
-          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          placeholder="Enter your secret message here..."></textarea>
-        <div class="text-sm text-gray-500 mt-1"><span id="charCount">0</span> / 1024 characters</div>
-      </div>
-
-      <!-- TTL -->
-      <div class="mb-4">
-        <label class="block text-gray-700 font-medium mb-2">Expires In</label>
-        <select id="ttlSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-          <option value="1">1 hour</option>
-          <option value="3">3 hours</option>
-          <option value="6">6 hours</option>
-          <option value="12" selected>12 hours</option>
-          <option value="24">24 hours</option>
-        </select>
-      </div>
-
-      <!-- Max Views -->
-      <div class="mb-4">
-        <label class="block text-gray-700 font-medium mb-2">Number of Views Allowed</label>
-        <select id="maxViewsSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-          <option value="1" selected>1 view — destroy after first view (most secure)</option>
-          <option value="2">2 views</option>
-          <option value="3">3 views</option>
-          <option value="5">5 views</option>
-          <option value="10">10 views</option>
-        </select>
-      </div>
-
-      <!-- Optional Passphrase -->
-      <div class="mb-4">
-        <label class="block text-gray-700 font-medium mb-2">
-          Passphrase Protection
-          <span class="text-sm font-normal text-gray-500 ml-1">(optional — adds a second factor)</span>
-        </label>
-        <input type="password" id="passphraseInput"
-          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-          placeholder="Leave blank for no passphrase">
-        <p class="text-xs text-gray-500 mt-1">
-          If set, the recipient must know this passphrase to decrypt the secret. It is never sent to the server.
-        </p>
-      </div>
-
-      <!-- File Upload (shown when enabled by server) -->
-      <div id="fileUploadSection" class="mb-4 hidden">
-        <label class="block text-gray-700 font-medium mb-2">
-          Attach Files
-          <span class="font-normal text-gray-500 text-sm">(max 5 files &middot; 15 MB total)</span>
-        </label>
-        <!-- File input visually hidden but not display:none — browsers block .click() on display:none inputs -->
-        <div class="relative">
-          <input type="file" id="fileInput" multiple
-            style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1;">
-          <button type="button" id="filePickerBtn"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-left text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors text-sm bg-white">
-            📎 Choose files…
-          </button>
-        </div>
-        <!-- Per-file list with delete buttons -->
-        <div id="fileList" class="mt-2 space-y-1"></div>
-        <!-- Total size bar (shown when files are selected) -->
-        <div id="fileSizeBar" class="hidden mt-2">
-          <div class="flex justify-between text-xs text-gray-500 mb-1">
-            <span id="fileSizeLabel">0 MB of 15 MB used</span>
-            <span id="fileCountLabel">0 / 5 files</span>
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm leading-relaxed transition"
+          placeholder="Paste a password, API key, note, or anything sensitive…"></textarea>
+        <!-- Char counter with colour-shift bar -->
+        <div class="mt-1.5">
+          <div class="w-full bg-gray-100 rounded-full overflow-hidden h-[3px] mb-1">
+            <div id="charBar" style="width:0%;background:#a855f7"></div>
           </div>
-          <div class="w-full bg-gray-200 rounded-full h-1.5">
-            <div id="fileSizeBarFill" class="h-1.5 rounded-full transition-all duration-200" style="width:0%;background:#a855f7"></div>
-          </div>
-        </div>
-        <!-- Inline validation error for file selection -->
-        <div id="fileSelectError" class="hidden mt-1 text-xs font-medium text-red-600"></div>
-        <!-- File encryption progress -->
-        <div id="fileProgress" class="hidden mt-3">
-          <div class="text-sm text-gray-600 mb-1" id="fileProgressText">Encrypting files...</div>
-          <div class="w-full bg-gray-200 rounded-full h-2">
-            <div id="fileProgressBar" class="progress-bar-fill bg-purple-600 h-2 rounded-full" style="width:0%"></div>
+          <div class="flex justify-between text-xs text-gray-400">
+            <span id="charHint"></span>
+            <span><span id="charCount">0</span> / 1024</span>
           </div>
         </div>
       </div>
+
+      <!-- Advanced options — collapsed by default -->
+      <div class="mb-5">
+        <button type="button" id="advancedToggle"
+          class="flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-800 transition">
+          <span class="chevron text-xs">▼</span>
+          Advanced options
+          <span id="advancedSummary" class="text-gray-400 font-normal ml-1">· expires in 12h · 1 view</span>
+        </button>
+
+        <div id="advancedContent" class="mt-4 space-y-4">
+          <!-- TTL + Views — side by side on sm+ -->
+          <div class="selects-grid">
+            <div>
+              <label class="block text-gray-700 font-medium mb-1.5 text-sm" for="ttlSelect">Expires in</label>
+              <select id="ttlSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm">
+                <option value="1">1 hour</option>
+                <option value="3">3 hours</option>
+                <option value="6">6 hours</option>
+                <option value="12" selected>12 hours</option>
+                <option value="24">24 hours</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-gray-700 font-medium mb-1.5 text-sm" for="maxViewsSelect">Views allowed</label>
+              <select id="maxViewsSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm">
+                <option value="1" selected>1 — destroy after first view</option>
+                <option value="2">2 views</option>
+                <option value="3">3 views</option>
+                <option value="5">5 views</option>
+                <option value="10">10 views</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Passphrase -->
+          <div>
+            <label class="block text-gray-700 font-medium mb-1.5 text-sm" for="passphraseInput">
+              Passphrase <span class="font-normal text-gray-400">(optional — adds a second factor)</span>
+            </label>
+            <input type="password" id="passphraseInput"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+              placeholder="Leave blank for no passphrase">
+            <p class="text-xs text-gray-400 mt-1">
+              If set, the recipient must enter this to decrypt. It never leaves your browser.
+            </p>
+          </div>
+
+          <!-- File Upload (shown when enabled by server) -->
+          <div id="fileUploadSection" class="hidden">
+            <label class="block text-gray-700 font-medium mb-1.5 text-sm">
+              Attach files <span class="font-normal text-gray-400">(max 5 files · 15 MB total)</span>
+            </label>
+            <div class="relative">
+              <input type="file" id="fileInput" multiple
+                style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1;">
+              <button type="button" id="filePickerBtn"
+                class="w-full px-3 py-2 border border-dashed border-gray-300 rounded-lg text-left text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors text-sm bg-white">
+                📎 Choose files…
+              </button>
+            </div>
+            <div id="fileList" class="mt-2 space-y-1"></div>
+            <div id="fileSizeBar" class="hidden mt-2">
+              <div class="flex justify-between text-xs text-gray-500 mb-1">
+                <span id="fileSizeLabel">0 MB of 15 MB used</span>
+                <span id="fileCountLabel">0 / 5 files</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-1.5">
+                <div id="fileSizeBarFill" class="h-1.5 rounded-full transition-all duration-200" style="width:0%;background:#a855f7"></div>
+              </div>
+            </div>
+            <div id="fileSelectError" class="hidden mt-1 text-xs font-medium text-red-600"></div>
+            <div id="fileProgress" class="hidden mt-3">
+              <div class="text-sm text-gray-600 mb-1" id="fileProgressText">Encrypting files...</div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="fileProgressBar" class="progress-bar-fill bg-purple-600 h-2 rounded-full" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /advancedContent -->
+      </div><!-- /advanced -->
 
       <button id="createBtn"
-        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200">
+        class="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.99] text-white font-semibold py-3 rounded-lg transition duration-150 text-base">
         Create Secret Link
       </button>
 
-      <!-- Success -->
-      <div id="successMessage" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-        <h3 class="text-green-800 font-semibold mb-2">✅ Secret Created!</h3>
-        <div class="mb-3">
-          <label class="block text-sm text-green-700 mb-1">Share this link:</label>
-          <div class="flex gap-2">
-            <input id="secretLink" type="text" readonly
-              class="flex-1 px-3 py-2 border border-green-300 rounded bg-white text-sm">
-            <button id="copyBtn"
-              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition min-w-[80px]">
-              Copy
-            </button>
-          </div>
+      <!-- Success — redesigned -->
+      <div id="successMessage" class="hidden mt-5 fade-in">
+        <div class="link-box">
+          <p class="text-sm font-semibold text-green-800 mb-2">✅ Your secret link is ready — copy it now</p>
+          <!-- Link displayed as a readable textarea, not a single-line input -->
+          <textarea id="secretLink" readonly rows="3" onclick="this.select()"></textarea>
+          <button id="copyBtn">📋 Copy link</button>
         </div>
-        <p class="text-sm text-green-700">
-          ⚠️ This link expires in <span id="expiryTime"></span> and can be viewed <span id="viewsAllowed"></span>.
-        </p>
-        <p id="passphraseReminder" class="hidden text-sm text-yellow-700 mt-1">
-          🔑 Remember: the recipient will need the passphrase you set.
-        </p>
-        <button id="createAnotherBtn" class="mt-3 text-purple-600 hover:text-purple-800 font-medium text-sm">
-          Create Another Secret →
+        <!-- Expiry + passphrase notice below the box -->
+        <div class="mt-3 text-sm text-gray-600 space-y-1 px-1">
+          <p>⏱️ Expires in <span id="expiryTime" class="font-medium text-gray-800"></span> · viewed <span id="viewsAllowed" class="font-medium text-gray-800"></span></p>
+          <p id="passphraseReminder" class="hidden text-amber-700">🔑 Remind the recipient: they'll need the passphrase you set.</p>
+        </div>
+        <button id="createAnotherBtn" class="mt-4 w-full text-center text-purple-600 hover:text-purple-800 font-medium text-sm py-2 border border-purple-200 rounded-lg hover:bg-purple-50 transition">
+          + Create another secret
         </button>
       </div>
 
       <!-- Error -->
       <div id="errorMessage" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-        <p class="text-red-800"></p>
+        <p class="text-red-800 text-sm"></p>
       </div>
     </div>
 
@@ -527,6 +619,22 @@ console.log('Secret:', secret);</pre>
     }
 
     // ===================================
+    // SETTINGS PANEL
+    // ===================================
+    const settingsBtn   = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      settingsPanel.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+      if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+        settingsPanel.classList.add('hidden');
+      }
+    });
+
+    // ===================================
     // THEME & MODE
     // ===================================
     const themes = {
@@ -553,7 +661,7 @@ console.log('Secret:', secret);</pre>
     }
     function applyMode(mode) {
       document.body.classList.toggle('dark-mode', mode === 'dark');
-      document.getElementById('modeToggle').textContent = mode === 'dark' ? '☀️' : '🌙';
+      document.getElementById('modeToggle').textContent = mode === 'dark' ? '☀️ Light mode' : '🌙 Dark mode';
       localStorage.setItem('mode', mode);
     }
     function applyTimeBasedMode() {
@@ -575,14 +683,61 @@ console.log('Secret:', secret);</pre>
     });
 
     // ===================================
-    // CHARACTER COUNTER
+    // ADVANCED OPTIONS TOGGLE
+    // ===================================
+    const advancedToggle  = document.getElementById('advancedToggle');
+    const advancedContent = document.getElementById('advancedContent');
+    const advancedSummary = document.getElementById('advancedSummary');
+
+    function updateAdvancedSummary() {
+      const ttl      = document.getElementById('ttlSelect');
+      const views    = document.getElementById('maxViewsSelect');
+      const pp       = document.getElementById('passphraseInput').value;
+      const ttlText  = ttl.options[ttl.selectedIndex].text;
+      const viewText = views.value === '1' ? '1 view' : `${views.value} views`;
+      const ppText   = pp ? ' · 🔑 passphrase' : '';
+      advancedSummary.textContent = `· ${ttlText} · ${viewText}${ppText}`;
+    }
+
+    advancedToggle.addEventListener('click', () => {
+      const isOpen = advancedContent.classList.toggle('open');
+      advancedToggle.classList.toggle('open', isOpen);
+      advancedSummary.style.display = isOpen ? 'none' : '';
+    });
+
+    document.getElementById('ttlSelect').addEventListener('change', updateAdvancedSummary);
+    document.getElementById('maxViewsSelect').addEventListener('change', updateAdvancedSummary);
+    document.getElementById('passphraseInput').addEventListener('input', updateAdvancedSummary);
+    updateAdvancedSummary();
+
+    // ===================================
+    // CHARACTER COUNTER with colour bar
     // ===================================
     const secretText = document.getElementById('secretText');
     const charCount  = document.getElementById('charCount');
+    const charBar    = document.getElementById('charBar');
+    const charHint   = document.getElementById('charHint');
+
     secretText.addEventListener('input', () => {
       const len = secretText.value.length;
       charCount.textContent = len;
-      charCount.classList.toggle('text-red-600', len > 1024);
+      const pct = Math.min(100, (len / 1024) * 100);
+      charBar.style.width = pct + '%';
+      if (len > 1024) {
+        charBar.style.background = '#ef4444';
+        charHint.textContent = `${len - 1024} characters over limit`;
+        charHint.style.color = '#ef4444';
+      } else if (len > 900) {
+        charBar.style.background = '#f97316';
+        charHint.textContent = `${1024 - len} remaining`;
+        charHint.style.color = '#f97316';
+      } else if (len > 0) {
+        charBar.style.background = '#a855f7';
+        charHint.textContent = '';
+      } else {
+        charBar.style.background = '#a855f7';
+        charHint.textContent = '';
+      }
     });
 
     // ===================================
@@ -875,8 +1030,17 @@ console.log('Secret:', secret);</pre>
       const btn   = document.getElementById('copyBtn');
       const value = document.getElementById('secretLink').value;
       const ok    = await copyToClipboard(value);
-      btn.textContent = ok ? '✓ Copied!' : '❌ Failed';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      if (ok) {
+        btn.textContent = '✓ Copied to clipboard!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = '📋 Copy link';
+          btn.classList.remove('copied');
+        }, 2500);
+      } else {
+        btn.textContent = '❌ Copy failed — select manually';
+        setTimeout(() => { btn.textContent = '📋 Copy link'; }, 3000);
+      }
     });
 
     // ===================================
@@ -886,12 +1050,15 @@ console.log('Secret:', secret);</pre>
       secretText.value = '';
       secretText.disabled = false;
       charCount.textContent = '0';
+      charBar.style.width = '0%';
+      charHint.textContent = '';
       document.getElementById('ttlSelect').disabled = false;
       document.getElementById('ttlSelect').value = '12';
       document.getElementById('maxViewsSelect').disabled = false;
       document.getElementById('maxViewsSelect').value = '1';
       document.getElementById('passphraseInput').disabled = false;
       document.getElementById('passphraseInput').value = '';
+      updateAdvancedSummary();
       if (!document.getElementById('fileUploadSection').classList.contains('hidden')) {
         selectedFiles = [];
         fileInput.value = '';
@@ -905,7 +1072,8 @@ console.log('Secret:', secret);</pre>
     });
 
     function showError(message) {
-      errorMessage.querySelector('p').textContent = message;
+      const errEl = errorMessage.querySelector('p');
+      if (errEl) errEl.textContent = message;
       errorMessage.classList.remove('hidden');
       successMessage.classList.add('hidden');
     }
