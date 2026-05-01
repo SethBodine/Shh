@@ -23,6 +23,7 @@ import {
 const FEATURES = {
   FILE_UPLOADS_ENABLED: true,
   MAX_FILE_SIZE: 10 * 1024 * 1024,
+  MAX_FILE_COUNT: 5,          // enforced server-side
   MAX_TEXT_SIZE: 1024,
   MAX_TTL_HOURS: 24,
   MAX_VIEWS: 10,
@@ -134,7 +135,7 @@ export async function onRequest(context) {
 
   const clientIP    = getClientIP(request);
   const RATE_LIMITS = getRateLimits(env);
-  const corsHeaders = getCORSHeaders();
+  const corsHeaders = getCORSHeaders(request.headers.get('Origin') || '');
 
   try {
 
@@ -144,10 +145,11 @@ export async function onRequest(context) {
         status: 'ok', version: '3.1.0', timestamp: new Date().toISOString(),
         features: {
           fileUploads: FEATURES.FILE_UPLOADS_ENABLED, maxFileSize: FEATURES.MAX_FILE_SIZE,
+          maxFileCount: FEATURES.MAX_FILE_COUNT,
           maxTextSize: FEATURES.MAX_TEXT_SIZE, maxTTL: FEATURES.MAX_TTL_HOURS,
           maxViews: FEATURES.MAX_VIEWS, e2ee: true, zeroKnowledge: true, passphraseProtection: true,
         },
-        config: { kvBound: !!env.SECRETS_KV, adminTokenSet: !!env.ADMIN_TOKEN, discordWebhookSet: !!env.DISCORD_WEBHOOK_URL },
+        // config object intentionally omitted — infrastructure details are not public
         rateLimits: RATE_LIMITS,
       }), { headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
     }
@@ -178,6 +180,8 @@ export async function onRequest(context) {
       if (files.length > 0) {
         if (!FEATURES.FILE_UPLOADS_ENABLED)
           return new Response(JSON.stringify({ error: 'File uploads are not enabled' }), { status: 403, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
+        if (files.length > FEATURES.MAX_FILE_COUNT)
+          return new Response(JSON.stringify({ error: `Too many files — maximum is ${FEATURES.MAX_FILE_COUNT}` }), { status: 400, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });
         for (const file of files) {
           const fv = validateFileMetadata(file, FEATURES.MAX_FILE_SIZE);
           if (!fv.valid) return new Response(JSON.stringify({ error: fv.error }), { status: 400, headers: applySecurityHeaders({ 'Content-Type': 'application/json', ...corsHeaders }) });

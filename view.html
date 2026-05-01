@@ -288,6 +288,13 @@
     const secretId   = pathParts[pathParts.length - 1];
     const urlFragment = window.location.hash.slice(1);
 
+    // Clear the key from the URL immediately — before any async work.
+    // This prevents the decryption key from persisting in browser history,
+    // autocomplete, or screen-share recordings.
+    if (urlFragment) {
+      history.replaceState(null, '', window.location.pathname);
+    }
+
     // Determine if passphrase-protected: fragment starts with "pp."
     const isPassphraseProtected = urlFragment.startsWith('pp.');
     let ppParts = null; // ['pp', salt, wrappedKey]

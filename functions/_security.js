@@ -160,7 +160,13 @@ export function validateFileMetadata(file, maxSize = 10 * 1024 * 1024) {
   if (!file.data || typeof file.data !== 'string') {
     return { valid: false, error: 'Invalid file data' };
   }
-  
+
+  // Validate that encrypted file data is valid base64url format
+  const base64urlRegex = /^[A-Za-z0-9_\-+/]+=*$/;
+  if (!base64urlRegex.test(file.data)) {
+    return { valid: false, error: 'Invalid file data format (must be base64)' };
+  }
+
   // Encrypted file data will be ~133% of original size (base64) plus IV
   // Allow encrypted data to be larger than original file size
   const maxEncryptedSize = Math.ceil(maxSize * 1.4); // 40% overhead
@@ -200,12 +206,25 @@ export function validateAdminToken(request, env, headerName = 'X-Admin-Token') {
 
 // ─── CORS Headers ────────────────────────────────────────────────────────────
 
+// Allowed origins for CORS. Requests from any other origin will receive
+// a null ACAO header, causing the browser to block the response.
+const ALLOWED_ORIGINS = [
+  'https://shh.insecure.co.nz',
+];
+
 /**
- * Get CORS headers for API responses
+ * Get CORS headers for API responses.
+ * Origin is validated against the allowlist — only exact matches are reflected.
+ * Falls back to the primary domain for non-browser (curl/API) callers that
+ * send no Origin header, which is harmless because they bypass CORS anyway.
  */
-export function getCORSHeaders(origin = '*') {
+export function getCORSHeaders(requestOrigin) {
+  const origin = ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': origin,
+    'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Token',
     'Access-Control-Max-Age': '86400', // 24 hours

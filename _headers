@@ -1,5 +1,15 @@
 # Cloudflare Pages HTTP response headers
 # More-specific paths take precedence over less-specific ones.
+#
+# CSP note on 'unsafe-inline' and 'unsafe-eval' in script-src:
+#   These are required by https://cdn.tailwindcss.com (the Play CDN), which
+#   is a JavaScript runtime that generates CSS at runtime and uses eval()
+#   internally. Removing them requires switching to a pre-built Tailwind CSS
+#   file (e.g. via a build step) — which would allow a strict CSP.
+#   The app's own code contains no eval() or inline event handlers.
+#
+# 'unsafe-inline' in style-src is also required by the Play CDN, which
+#   dynamically injects <style> tags. A future build step would remove this too.
 
 # ─── All HTML pages ───────────────────────────────────────────────────────────
 /*.html
@@ -20,6 +30,16 @@
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Cache-Control: no-store
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; connect-src 'self' https://cdn.tailwindcss.com; font-src 'self' data: https://cdn.tailwindcss.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
+
+# ─── admin.html — never cache, stricter connect-src ──────────────────────────
+/admin.html
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Cache-Control: no-store
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; connect-src 'self' https://shh.insecure.co.nz https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; font-src 'self' data: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
 
 # ─── Swagger UI (extensionless file) ─────────────────────────────────────────
 /swagger
