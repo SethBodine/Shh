@@ -674,6 +674,15 @@ console.log('Secret:', secret);</pre>
     });
     initializeTheme();
 
+    // Declared here so they're available to DOMContentLoaded and updateAdvancedSummary below
+    const secretText = document.getElementById('secretText');
+    const charCount  = document.getElementById('charCount');
+    const charBar    = document.getElementById('charBar');
+    const charHint   = document.getElementById('charHint');
+
+    // File selection state — declared here so updateAdvancedSummary can reference it
+    let selectedFiles = [];
+
     window.addEventListener('DOMContentLoaded', () => {
       secretText.value = '';
       charCount.textContent = '0';
@@ -725,11 +734,6 @@ console.log('Secret:', secret);</pre>
     // ===================================
     // CHARACTER COUNTER with colour bar
     // ===================================
-    const secretText = document.getElementById('secretText');
-    const charCount  = document.getElementById('charCount');
-    const charBar    = document.getElementById('charBar');
-    const charHint   = document.getElementById('charHint');
-
     secretText.addEventListener('input', () => {
       const len = secretText.value.length;
       charCount.textContent = len;
@@ -808,7 +812,6 @@ console.log('Secret:', secret);</pre>
     // selectedFiles is the source of truth — fileInput.files is read-only so
     // we can't remove individual entries from it. Instead we maintain our own
     // array and use the hidden input only to open the OS picker.
-    let selectedFiles = [];
 
     const fileInput       = document.getElementById('fileInput');
     const filePickerBtn   = document.getElementById('filePickerBtn');
